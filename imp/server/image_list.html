@@ -1,19 +1,13 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <title>Images</title>
-</head>
-<body>
-  <main>
-    <a href="/images/new">New Image</a>
-    <ul>
-      {% for image in images %}
-        <li>
-          <a href="/images/{{ image['key'] }}">{{ image['name'] }}</a>
-        </li>
-      {% end %}
-    </ul>
-  </main>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Images{% end %}
+{% block main %}
+  <a href="/images/new">New Image</a>
+  <ul>
+    {% for image in images %}
+      <li>
+        <a href="/images/{{ image['key'] }}">{{ image['name'] }}</a>
+      </li>
+    {% end %}
+  </ul>
+{% end %}
