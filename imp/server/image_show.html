@@ -5,4 +5,13 @@
   <h1>{{ name }}</h1>
   <img alt="" src="{{ url }}"/>
   <p>{{ desc or "" }}</p>
+  <ul>
+    {% for tag in tags %}
+    <li>
+      <a href="/tags/{{ tag['name'].replace(' ', '+') }}">
+        {{ tag['name'] }}
+      </a>
+    </li>
+    {% end %}
+  </ul>
 {% end %}

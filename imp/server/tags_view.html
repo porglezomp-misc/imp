@@ -3,4 +3,13 @@
 {% block title %}{{ name }}{% end %}
 {% block main %}
   <h1>{{ name }}</h1>
+  <ul>
+    {% for image in images %}
+    <li>
+      <a href="/images/{{ image['key'] }}">
+        {{ image['name'] }}
+      </a>
+    </li>
+    {% end %}
+  </ul>
 {% end %}

@@ -24,8 +24,12 @@ class ShowImageHandler(Handler):
             self.write("Image not found")
         else:
             data = image.fetchone()
+            tags = self.db.execute('SELECT tags.name FROM image_tags '
+                                   'INNER JOIN tags ON tags.id = tag_id '
+                                   'WHERE image_id = ?', [data['id']])
             self.render('image_show.html', name=data['name'],
-                        desc=data['description'], url=data['url'])
+                        desc=data['description'], url=data['url'],
+                        tags=tags.fetchall())
 
 
 class NewImageHandler(Handler):
@@ -74,7 +78,17 @@ class ListTagHandler(Handler):
 class ViewTagHandler(Handler):
     def get(self, tag_name):
         tag_name = tag_name.replace('+', ' ')
-        self.render('tags_view.html', name=tag_name)
+        tag = self.db.execute('SELECT * FROM tags WHERE name = ?',
+                              [tag_name]).fetchone()
+
+        if tag is None:
+            self.set_status(404)
+            return
+
+        images = self.db.execute('SELECT images.key, images.name FROM image_tags '
+                                 'INNER JOIN images ON images.id = image_id '
+                                 'WHERE tag_id = ?', [tag['id']]).fetchmany(100)
+        self.render('tags_view.html', name=tag_name, images=images)
 
 
 def make_app(db):
