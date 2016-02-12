@@ -81,7 +81,7 @@ def make_db():
             );
 
             CREATE TABLE tags (
-              id INTEGER PRIMIARY KEY NOT NULL,
+              id INTEGER PRIMARY KEY NOT NULL,
               name VARCHAR(64) UNIQUE NOT NULL
             );
 
@@ -93,7 +93,7 @@ def make_db():
             ''')
             con.execute('PRAGMA user_version = 1;')
     return con
-    
+
 
 if __name__ == '__main__':
     db = make_db()
