@@ -4,24 +4,22 @@ import tornado.ioloop
 import tornado.web
 
 
-# TODO:
-# https://imgur.com/gallery/IaHuZ
-class ListImageHandler(tornado.web.RequestHandler):
+class Handler(tornado.web.RequestHandler):
     def initialize(self, db):
         self.db = db
 
+# TODO:
+# https://imgur.com/gallery/IaHuZ
+class ListImageHandler(Handler):
     def get(self):
         images = self.db.execute("SELECT key, name FROM images;")
         self.render('image_list.html', images=images.fetchmany(30))
-            
 
-class ShowImageHandler(tornado.web.RequestHandler):
-    def initialize(self, db):
-        self.db = db
 
-    def get(self, image_id):
+class ShowImageHandler(Handler):
+    def get(self, image_key):
         image = self.db.execute('SELECT * FROM images WHERE key = ?',
-                                [image_id])
+                                [image_key])
         if image is None:
             self.write("Image not found")
         else:
@@ -30,10 +28,7 @@ class ShowImageHandler(tornado.web.RequestHandler):
                         desc=data['description'], url=data['url'])
 
 
-class NewImageHandler(tornado.web.RequestHandler):
-    def initialize(self, db):
-        self.db = db
-
+class NewImageHandler(Handler):
     def get(self):
         self.render('image_form.html')
 
@@ -53,12 +48,30 @@ class NewImageHandler(tornado.web.RequestHandler):
         self.redirect('/images/{}'.format(key))
 
 
+class ImageTagsHandler(Handler):
+    def get(self, image_key):
+        self.set_header("Content-Type", "text/json")
+        image_id = self.db.execute('SELECT id FROM images WHERE key = ?',
+                                   [image_key]).fetchone()
+        if image_id is None:
+            self.set_status(404)
+            return
+
+        image_id = image_id[0]
+        tags = self.db.execute('SELECT tags.name FROM image_tags '
+                               'INNER JOIN tags ON tags.id = tag_id '
+                               'WHERE image_id = ?', [image_id])
+        self.write(json.dumps([tag['name'] for tag in tags.fetchall()]))
+
+
+
 def make_app(db):
     return tornado.web.Application([
         (r'/', ListImageHandler, {'db': db}),
         (r'/images/', ListImageHandler, {'db': db}),
         (r'/images/new', NewImageHandler, {'db': db}),
         (r'/images/([^/]+)', ShowImageHandler, {'db': db}),
+        (r'/images/([^/]+)/tags.json', ImageTagsHandler, {'db': db}),
     ], debug=True)
 
 
