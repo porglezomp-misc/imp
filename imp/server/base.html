@@ -7,11 +7,15 @@
     img { max-width: 100%; }
     nav, main { max-width: 1000px; margin: 0 auto; }
     ul { padding: 0; list-style-type: none; }
+    nav li { display: inline; }
   </style>
 </head>
 <body>
   <nav>
-    <a href="/">Home</a>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/tags">Tags</a></li>
+    </ul>
   </nav>
   <main>
     {% block main %}

@@ -61,17 +61,32 @@ class ImageTagsHandler(Handler):
         tags = self.db.execute('SELECT tags.name FROM image_tags '
                                'INNER JOIN tags ON tags.id = tag_id '
                                'WHERE image_id = ?', [image_id])
-        self.write(json.dumps([tag['name'] for tag in tags.fetchall()]))
+        output = json.dumps([tag['name'] for tag in tags.fetchall()])
+        self.write(output)
 
+
+class ListTagHandler(Handler):
+    def get(self):
+        tags = self.db.execute('SELECT name FROM tags').fetchmany(100)
+        self.render('tags_list.html', tags=tags)
+
+
+class ViewTagHandler(Handler):
+    def get(self, tag_name):
+        tag_name = tag_name.replace('+', ' ')
+        self.render('tags_view.html', name=tag_name)
 
 
 def make_app(db):
+    db = {'db': db}
     return tornado.web.Application([
-        (r'/', ListImageHandler, {'db': db}),
-        (r'/images/', ListImageHandler, {'db': db}),
-        (r'/images/new', NewImageHandler, {'db': db}),
-        (r'/images/([^/]+)', ShowImageHandler, {'db': db}),
-        (r'/images/([^/]+)/tags.json', ImageTagsHandler, {'db': db}),
+        (r'/', ListImageHandler, db),
+        (r'/images/?', ListImageHandler, db),
+        (r'/images/new', NewImageHandler, db),
+        (r'/images/([^/]+)', ShowImageHandler, db),
+        (r'/images/([^/]+)/tags.json', ImageTagsHandler, db),
+        (r'/tags/?', ListTagHandler, db),
+        (r'/tags/([^/]+)', ViewTagHandler, db),
     ], debug=True)
 
 

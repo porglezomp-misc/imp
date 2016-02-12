@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Tags{% end %}
+{% block main %}
+  <ul>
+    {% for tag in tags %}
+      <li>
+        <a href="tags/{{ tag['name'].replace(' ', '+') }}">
+          {{ tag['name'] }}
+        </a>
+      </li>
+    {% end %}
+  </ul>
+{% end %}
