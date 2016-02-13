@@ -106,7 +106,7 @@ def make_app(db):
 
 
 if __name__ == '__main__':
-    db = database.make_db()
+    db = database.make_db('imp.db')
     app = make_app(db)
     app.listen(8888)
     tornado.ioloop.IOLoop.current().start()
