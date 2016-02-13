@@ -85,10 +85,24 @@ class ViewTagHandler(Handler):
             self.set_status(404)
             return
 
-        images = self.db.execute('SELECT images.key, images.name FROM image_tags '
-                                 'INNER JOIN images ON images.id = image_id '
-                                 'WHERE tag_id = ?', [tag['id']]).fetchmany(100)
+        images = self.db.execute(
+            'SELECT images.key, images.name FROM image_tags '
+            'INNER JOIN images ON images.id = image_id '
+            'WHERE tag_id = ?', [tag['id']]).fetchmany(100)
         self.render('tags_view.html', name=tag_name, images=images)
+
+
+class NewTagHandler(Handler):
+    def get(self):
+        self.render('tags_form.html')
+
+    def post(self):
+        name = self.get_body_argument("name")
+        with db:
+            self.db.execute('INSERT INTO tags (name) VALUES (?)',
+                            (name,))
+        name = name.replace(' ', '+')
+        self.redirect('/tags/{}'.format(name))
 
 
 def make_app(db):
@@ -96,10 +110,11 @@ def make_app(db):
     return tornado.web.Application([
         (r'/', ListImageHandler, db),
         (r'/images/?', ListImageHandler, db),
-        (r'/images/new', NewImageHandler, db),
+        (r'/images/new/?', NewImageHandler, db),
         (r'/images/([^/]+)', ShowImageHandler, db),
         (r'/images/([^/]+)/tags.json', ImageTagsHandler, db),
         (r'/tags/?', ListTagHandler, db),
+        (r'/tags/new/?', NewTagHandler, db),
         (r'/tags/([^/]+)', ViewTagHandler, db),
     ], debug=True)
 
