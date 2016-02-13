@@ -1,4 +1,7 @@
 import sqlite3
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def database_0_to_1(db):
@@ -57,5 +60,8 @@ def make_db(name):
     while version < len(db_upgrades):
         upgrade = db_upgrades[version]
         upgrade(con)
+        old_version = version
         version = con.execute('PRAGMA user_version;').fetchone()[0]
+        logger.info("Upgraded schema from user version %d to %d",
+                    old_version, version)
     return con
