@@ -19,17 +19,18 @@ class ListImageHandler(Handler):
 class ShowImageHandler(Handler):
     def get(self, image_key):
         image = self.db.execute('SELECT * FROM images WHERE key = ?',
-                                [image_key])
+                                [image_key]).fetchone()
         if image is None:
-            self.write("Image not found")
-        else:
-            data = image.fetchone()
-            tags = self.db.execute('SELECT tags.name FROM image_tags '
-                                   'INNER JOIN tags ON tags.id = tag_id '
-                                   'WHERE image_id = ?', [data['id']])
-            self.render('image_show.html', name=data['name'],
-                        desc=data['description'], url=data['url'],
-                        tags=tags.fetchall())
+            self.set_status(404)
+            self.write('image not found')
+            return
+
+        tags = self.db.execute('SELECT tags.name FROM image_tags '
+                               'INNER JOIN tags ON tags.id = tag_id '
+                               'WHERE image_id = ?', [image['id']])
+        self.render('image_show.html', name=image['name'],
+                    desc=image['description'], url=image['url'],
+                    tags=tags.fetchall())
 
 
 class NewImageHandler(Handler):
@@ -37,18 +38,17 @@ class NewImageHandler(Handler):
         self.render('image_form.html')
 
     def post(self):
-        self.set_header("Content-Type", "text/plain")
         name = self.get_body_argument("name")
         url = self.get_body_argument("url")
         description = self.get_body_argument("description")
         image = url.split('/')[-1]
         key = image.split('.')[0]
-        if not description:
-            description = None
+
         with self.db:
             self.db.execute(
                 'INSERT INTO images (name, key, url, description) '
                 'VALUES (?, ?, ?, ?)', (name, key, url, description))
+
         self.redirect('/images/{}'.format(key))
 
 
