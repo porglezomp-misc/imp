@@ -2,6 +2,7 @@ import sqlite3
 import json
 import tornado.ioloop
 import tornado.web
+import database
 
 
 class Handler(tornado.web.RequestHandler):
@@ -13,7 +14,7 @@ class Handler(tornado.web.RequestHandler):
 class ListImageHandler(Handler):
     def get(self):
         images = self.db.execute("SELECT key, name FROM images;")
-        self.render('image_list.html', images=images.fetchmany(30))
+        self.render('web/image_list.html', images=images.fetchmany(30))
 
 
 class ShowImageHandler(Handler):
@@ -28,14 +29,14 @@ class ShowImageHandler(Handler):
         tags = self.db.execute('SELECT tags.name FROM image_tags '
                                'INNER JOIN tags ON tags.id = tag_id '
                                'WHERE image_id = ?', [image['id']])
-        self.render('image_show.html', name=image['name'],
+        self.render('web/image_show.html', name=image['name'],
                     desc=image['description'], url=image['url'],
                     tags=tags.fetchall())
 
 
 class NewImageHandler(Handler):
     def get(self):
-        self.render('image_form.html')
+        self.render('web/image_form.html')
 
     def post(self):
         name = self.get_body_argument("name")
@@ -72,7 +73,7 @@ class ImageTagsHandler(Handler):
 class ListTagHandler(Handler):
     def get(self):
         tags = self.db.execute('SELECT name FROM tags').fetchmany(100)
-        self.render('tags_list.html', tags=tags)
+        self.render('web/tags_list.html', tags=tags)
 
 
 class ViewTagHandler(Handler):
@@ -88,7 +89,7 @@ class ViewTagHandler(Handler):
         images = self.db.execute('SELECT images.key, images.name FROM image_tags '
                                  'INNER JOIN images ON images.id = image_id '
                                  'WHERE tag_id = ?', [tag['id']]).fetchmany(100)
-        self.render('tags_view.html', name=tag_name, images=images)
+        self.render('web/tags_view.html', name=tag_name, images=images)
 
 
 def make_app(db):
@@ -104,41 +105,8 @@ def make_app(db):
     ], debug=True)
 
 
-def make_db():
-    con = sqlite3.connect('imp.db')
-    con.row_factory = sqlite3.Row
-    con.execute('PRAGMA foreign_keys = ON;')
-    data = con.execute('PRAGMA user_version;')
-    version = data.fetchone()[0]
-    if version == 0:
-        with con:
-            con.executescript('''
-            CREATE TABLE images (
-              id INTEGER PRIMARY KEY NOT NULL,
-              name TEXT NOT NULL,
-              key VARCHAR(24) NOT NULL,
-              url TEXT NOT NULL,
-              file TEXT,
-              description TEXT
-            );
-
-            CREATE TABLE tags (
-              id INTEGER PRIMARY KEY NOT NULL,
-              name VARCHAR(64) UNIQUE NOT NULL
-            );
-
-            CREATE TABLE image_tags (
-              id INTEGER PRIMARY KEY NOT NULL,
-              image_id INTEGER NOT NULL REFERENCES images(id) ON UPDATE CASCADE,
-              tag_id INTEGER NOT NULL REFERENCES tags(id) ON UPDATE CASCADE
-            );
-            ''')
-            con.execute('PRAGMA user_version = 1;')
-    return con
-
-
 if __name__ == '__main__':
-    db = make_db()
+    db = database.make_db()
     app = make_app(db)
     app.listen(8888)
     tornado.ioloop.IOLoop.current().start()
