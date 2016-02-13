@@ -29,8 +29,14 @@ class ShowImageHandler(Handler):
         tags = self.db.execute('SELECT tags.name FROM image_tags '
                                'INNER JOIN tags ON tags.id = tag_id '
                                'WHERE image_id = ?', [image['id']])
+
+        if image['file'] is None:
+            url = image['url']
+        else:
+            url = '/static/' + image['file']
+
         self.render('web/image_show.html', name=image['name'],
-                    desc=image['description'], url=image['url'],
+                    desc=image['description'], url=url,
                     tags=tags.fetchall())
 
 
@@ -92,10 +98,16 @@ class ViewTagHandler(Handler):
         self.render('web/tags_view.html', name=tag_name, images=images)
 
 
+class StaticFileHandler(tornado.web.RequestHandler):
+    def get(self, path):
+        text = open(path, 'r').read()
+        self.write(text)
+
 def make_app(db):
     db = {'db': db}
     return tornado.web.Application([
         (r'/', ListImageHandler, db),
+        (r'/static/(.*)', StaticFileHandler),
         (r'/images/?', ListImageHandler, db),
         (r'/images/new', NewImageHandler, db),
         (r'/images/([^/]+)', ShowImageHandler, db),
