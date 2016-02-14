@@ -16,14 +16,13 @@
     <li>
       <form id="newtag">
         <input aria-label="New Tag Name" id="name-input" name="name" type="text"/>
-        <input id="submit-button" type="button" value="Add Tag"/>
+        <input id="submit-button" type="submit" value="Add Tag"/>
       </form>
     </li>
   </ul>
   <script>
     function display() {
       var items = JSON.parse(this.responseText);
-      console.log(items);
       var newTag = document.getElementById('newtag').parentNode;
       var tagList = document.getElementById('tags');
       tagList.innerHTML = '';
@@ -36,10 +35,14 @@
       tagList.appendChild(newTag);
     }
 
-    function submit() {
+    function submitNewTag(event) {
+      event.preventDefault();
+
       var name = document.getElementById('name-input').value.trim();
       if (name == '') return;
       var dataString = 'name='+name;
+
+      document.getElementById('name-input').value = '';
 
       var xhr = new XMLHttpRequest();
       xhr.open('POST', '/images/{{ image_key }}/tags/new', true);
@@ -48,7 +51,7 @@
       xhr.send(dataString);
     }
 
-    var submitButton = document.getElementById('submit-button');
-    submitButton.addEventListener('click', submit);
+    var form = document.getElementById('newtag');
+    form.addEventListener('submit', submitNewTag);
   </script>
 {% end %}
