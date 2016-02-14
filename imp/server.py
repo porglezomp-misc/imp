@@ -49,6 +49,20 @@ class ShowImageHandler(Handler):
                      image_key=image_key, tags=tags.fetchall())
 
 
+class RawImageHandler(Handler):
+    def get(self, image_key):
+        image = self.db.execute('SELECT * FROM images WHERE key = ?',
+                                (image_key,)).fetchone()
+        if image is None:
+            self.set_status(404)
+            return
+
+        if image['file'] is None:
+            self.redirect(image['url'])
+
+        self.redirect('/static/' + image['file'])
+
+
 class NewImageHandler(Handler):
     def get(self):
         self.render('images/new.html')
@@ -139,6 +153,15 @@ class ViewTagHandler(Handler):
 
 class StaticFileHandler(tornado.web.RequestHandler):
     def get(self, path):
+        content_type = 'text/plain'
+        if path[-4:] == '.jpg':
+            content_type = 'image/jpeg'
+        elif path[-4:] == '.png':
+            content_type = 'image/png'
+        elif path[-4:] == '.gif':
+            content_type = 'image/gif'
+
+        self.set_header('Content-Type', content_type)
         text = open(path, 'r').read()
         self.write(text)
 
@@ -165,6 +188,7 @@ def make_app(db):
         (r'/images.json', ListImageJSON, db),
         (r'/images/new/?', NewImageHandler, db),
         (r'/images/([^/]+)/?', ShowImageHandler, db),
+        (r'/images/([^/]+)/raw', RawImageHandler, db),
         (r'/images/([^/]+)/tags.json', ImageTagsHandler, db),
         (r'/images/([^/]+)/tags/new/?', ImageAddTagHandler, db),
         (r'/tags/?', ListTagHandler, db),
