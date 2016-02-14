@@ -6,7 +6,7 @@
   <img alt="" src="{{ url }}"/>
   <p>{{ desc or "" }}</p>
   <a href="/images/{{ image_key }}/tags/new">+ Add Tag</a>
-  <ul>
+  <ul id="tags">
     {% for tag in tags %}
     <li>
       <a href="/tags/{{ tag['name'].replace(' ', '+') }}">
