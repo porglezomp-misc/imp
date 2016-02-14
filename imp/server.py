@@ -82,27 +82,32 @@ class NewImageHandler(Handler):
         self.redirect('/images/{}'.format(key))
 
 
+def get_tags_json(db, image_key):
+    image_id = db.execute('SELECT id FROM images WHERE key = ?',
+                          [image_key]).fetchone()
+    if image_id is None:
+        return None
+
+    image_id = image_id[0]
+    tags = db.execute('SELECT tags.name FROM image_tags '
+                      'INNER JOIN tags ON tags.id = tag_id '
+                      'WHERE image_id = ?', [image_id])
+    output = json.dumps([tag['name'] for tag in tags.fetchall()])
+    return output
+
+
 class ImageTagsHandler(Handler):
     def get(self, image_key):
-        self.set_header("Content-Type", "text/json")
-        image_id = self.db.execute('SELECT id FROM images WHERE key = ?',
-                                   [image_key]).fetchone()
-        if image_id is None:
+        output = get_tags_json(self.db, image_key)
+        if output is None:
             self.set_status(404)
             return
 
-        image_id = image_id[0]
-        tags = self.db.execute('SELECT tags.name FROM image_tags '
-                               'INNER JOIN tags ON tags.id = tag_id '
-                               'WHERE image_id = ?', [image_id])
-        output = json.dumps([tag['name'] for tag in tags.fetchall()])
+        self.set_header("Content-Type", "text/json")
         self.write(output)
 
 
 class ImageAddTagHandler(Handler):
-    def get(self, image_key):
-        self.render('images/add_tag.html', image_key=image_key)
-
     def post(self, image_key):
         image_id = self.db.execute('SELECT id FROM images WHERE key = ?',
                                    (image_key,)).fetchone()
@@ -125,7 +130,9 @@ class ImageAddTagHandler(Handler):
         with self.db:
             self.db.execute('INSERT INTO image_tags (tag_id, image_id) '
                             'VALUES (?, ?)', (tag_id, image_id))
-        self.redirect('/images/{}'.format(image_key))
+
+        self.set_header("Content-Type", "text/json")
+        self.write(get_tags_json(self.db, image_key))
 
 
 class ListTagHandler(Handler):
