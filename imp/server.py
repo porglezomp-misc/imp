@@ -9,12 +9,21 @@ class Handler(tornado.web.RequestHandler):
     def initialize(self, db):
         self.db = db
 
-# TODO:
-# https://imgur.com/gallery/IaHuZ
+
 class ListImageHandler(Handler):
     def get(self):
         images = self.db.execute("SELECT key, name FROM images;")
         self.render('images/index.html', images=images.fetchall())
+
+
+class ListImageJSON(Handler):
+    def get(self):
+        self.set_header("Content-Type", "text/json")
+        images = self.db.execute("SELECT * FROM images")
+        entries = [{'key': img['key'], 'name': img['name']}
+                   for img in images.fetchall()]
+        out = json.dumps(entries)
+        self.write(out)
 
 
 class ShowImageHandler(Handler):
@@ -127,10 +136,12 @@ class ViewTagHandler(Handler):
             'WHERE tag_id = ?', [tag['id']]).fetchmany(100)
         self.render('tags/show.html', name=tag_name, images=images)
 
+
 class StaticFileHandler(tornado.web.RequestHandler):
     def get(self, path):
         text = open(path, 'r').read()
         self.write(text)
+
 
 class NewTagHandler(Handler):
     def get(self):
@@ -151,6 +162,7 @@ def make_app(db):
         (r'/', ListImageHandler, db),
         (r'/static/(.*)', StaticFileHandler),
         (r'/images/?', ListImageHandler, db),
+        (r'/images.json', ListImageJSON, db),
         (r'/images/new/?', NewImageHandler, db),
         (r'/images/([^/]+)/?', ShowImageHandler, db),
         (r'/images/([^/]+)/tags.json', ImageTagsHandler, db),
