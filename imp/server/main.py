@@ -30,7 +30,7 @@ class ShowImageHandler(Handler):
                                'WHERE image_id = ?', [image['id']])
         self.render('image_show.html', name=image['name'],
                     desc=image['description'], url=image['url'],
-                    tags=tags.fetchall())
+                    image_key=image_key, tags=tags.fetchall())
 
 
 class NewImageHandler(Handler):
