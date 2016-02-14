@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block title %}Add Tag{% end %}
+{% block main %}
+  <form action="/images/{{ image_key }}/tags/new" method="POST">
+    <label>Name <input name="name" type="text"/></label>
+    <input type="submit" value="Submit"/>
+  </form>
+{% end %}

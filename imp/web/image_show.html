@@ -5,6 +5,7 @@
   <h1>{{ name }}</h1>
   <img alt="" src="{{ url }}"/>
   <p>{{ desc or "" }}</p>
+  <a href="/images/{{ image_key }}/tags/new">+ Add Tag</a>
   <ul>
     {% for tag in tags %}
     <li>

@@ -37,7 +37,7 @@ class ShowImageHandler(Handler):
 
         self.render('web/image_show.html', name=image['name'],
                     desc=image['description'], url=url,
-                    tags=tags.fetchall())
+                     image_key=image_key, tags=tags.fetchall())
 
 
 class NewImageHandler(Handler):
@@ -76,6 +76,35 @@ class ImageTagsHandler(Handler):
         self.write(output)
 
 
+class ImageAddTagHandler(Handler):
+    def get(self, image_key):
+        self.render('web/image_tag_form.html', image_key=image_key)
+
+    def post(self, image_key):
+        image_id = self.db.execute('SELECT id FROM images WHERE key = ?',
+                                   (image_key,)).fetchone()
+        if image_id is None:
+            self.set_status(404)
+            return
+        image_id = image_id['id']
+
+        tag_name = self.get_body_argument('name')
+        tag_id = self.db.execute('SELECT id FROM tags WHERE name = ?',
+                                 (tag_name,)).fetchone()
+        if tag_id is None:
+            with self.db:
+                self.db.execute('INSERT INTO tags (name) VALUES (?)',
+                                (tag_name,))
+            tag_id = self.db.execute('SELECT id FROM tags WHERE name = ?',
+                                     (tag_name,)).fetchone()
+        tag_id = tag_id['id']
+
+        with self.db:
+            self.db.execute('INSERT INTO image_tags (tag_id, image_id) '
+                            'VALUES (?, ?)', (tag_id, image_id))
+        self.redirect('/images/{}'.format(image_key))
+
+
 class ListTagHandler(Handler):
     def get(self):
         tags = self.db.execute('SELECT name FROM tags').fetchmany(100)
@@ -92,16 +121,29 @@ class ViewTagHandler(Handler):
             self.set_status(404)
             return
 
-        images = self.db.execute('SELECT images.key, images.name FROM image_tags '
-                                 'INNER JOIN images ON images.id = image_id '
-                                 'WHERE tag_id = ?', [tag['id']]).fetchmany(100)
+        images = self.db.execute(
+            'SELECT images.key, images.name FROM image_tags '
+            'INNER JOIN images ON images.id = image_id '
+            'WHERE tag_id = ?', [tag['id']]).fetchmany(100)
         self.render('web/tags_view.html', name=tag_name, images=images)
-
 
 class StaticFileHandler(tornado.web.RequestHandler):
     def get(self, path):
         text = open(path, 'r').read()
         self.write(text)
+
+class NewTagHandler(Handler):
+    def get(self):
+        self.render('web/tags_form.html')
+
+    def post(self):
+        name = self.get_body_argument("name")
+        with db:
+            self.db.execute('INSERT INTO tags (name) VALUES (?)',
+                            (name,))
+        name = name.replace(' ', '+')
+        self.redirect('/tags/{}'.format(name))
+
 
 def make_app(db):
     db = {'db': db}
@@ -109,11 +151,13 @@ def make_app(db):
         (r'/', ListImageHandler, db),
         (r'/static/(.*)', StaticFileHandler),
         (r'/images/?', ListImageHandler, db),
-        (r'/images/new', NewImageHandler, db),
-        (r'/images/([^/]+)', ShowImageHandler, db),
+        (r'/images/new/?', NewImageHandler, db),
+        (r'/images/([^/]+)/?', ShowImageHandler, db),
         (r'/images/([^/]+)/tags.json', ImageTagsHandler, db),
+        (r'/images/([^/]+)/tags/new/?', ImageAddTagHandler, db),
         (r'/tags/?', ListTagHandler, db),
-        (r'/tags/([^/]+)', ViewTagHandler, db),
+        (r'/tags/new/?', NewTagHandler, db),
+        (r'/tags/([^/]+)/?', ViewTagHandler, db),
     ], debug=True)
 
 
