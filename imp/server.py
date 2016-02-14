@@ -14,7 +14,7 @@ class Handler(tornado.web.RequestHandler):
 class ListImageHandler(Handler):
     def get(self):
         images = self.db.execute("SELECT key, name FROM images;")
-        self.render('web/image_list.html', images=images.fetchall())
+        self.render('images/index.html', images=images.fetchall())
 
 
 class ShowImageHandler(Handler):
@@ -35,14 +35,14 @@ class ShowImageHandler(Handler):
         else:
             url = '/static/' + image['file']
 
-        self.render('web/image_show.html', name=image['name'],
+        self.render('images/show.html', name=image['name'],
                     desc=image['description'], url=url,
                      image_key=image_key, tags=tags.fetchall())
 
 
 class NewImageHandler(Handler):
     def get(self):
-        self.render('web/image_form.html')
+        self.render('images/new.html')
 
     def post(self):
         name = self.get_body_argument("name")
@@ -78,7 +78,7 @@ class ImageTagsHandler(Handler):
 
 class ImageAddTagHandler(Handler):
     def get(self, image_key):
-        self.render('web/image_tag_form.html', image_key=image_key)
+        self.render('images/add_tag.html', image_key=image_key)
 
     def post(self, image_key):
         image_id = self.db.execute('SELECT id FROM images WHERE key = ?',
@@ -108,7 +108,7 @@ class ImageAddTagHandler(Handler):
 class ListTagHandler(Handler):
     def get(self):
         tags = self.db.execute('SELECT name FROM tags').fetchmany(100)
-        self.render('web/tags_list.html', tags=tags)
+        self.render('tags/index.html', tags=tags)
 
 
 class ViewTagHandler(Handler):
@@ -125,7 +125,7 @@ class ViewTagHandler(Handler):
             'SELECT images.key, images.name FROM image_tags '
             'INNER JOIN images ON images.id = image_id '
             'WHERE tag_id = ?', [tag['id']]).fetchmany(100)
-        self.render('web/tags_view.html', name=tag_name, images=images)
+        self.render('tags/show.html', name=tag_name, images=images)
 
 class StaticFileHandler(tornado.web.RequestHandler):
     def get(self, path):
@@ -134,7 +134,7 @@ class StaticFileHandler(tornado.web.RequestHandler):
 
 class NewTagHandler(Handler):
     def get(self):
-        self.render('web/tags_form.html')
+        self.render('tags/new.html')
 
     def post(self):
         name = self.get_body_argument("name")
@@ -158,7 +158,7 @@ def make_app(db):
         (r'/tags/?', ListTagHandler, db),
         (r'/tags/new/?', NewTagHandler, db),
         (r'/tags/([^/]+)/?', ViewTagHandler, db),
-    ], debug=True)
+    ], debug=True, template_path='web/')
 
 
 if __name__ == '__main__':
