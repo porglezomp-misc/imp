@@ -14,7 +14,7 @@ class Handler(tornado.web.RequestHandler):
 class ListImageHandler(Handler):
     def get(self):
         images = self.db.execute("SELECT key, name FROM images;")
-        self.render('web/image_list.html', images=images.fetchmany(30))
+        self.render('web/image_list.html', images=images.fetchall())
 
 
 class ShowImageHandler(Handler):
