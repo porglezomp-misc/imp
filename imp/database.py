@@ -1,5 +1,6 @@
 import sqlite3
 import logging
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,15 @@ def make_db(name):
     con.row_factory = sqlite3.Row
     con.execute('PRAGMA foreign_keys = ON;')
     version = con.execute('PRAGMA user_version;').fetchone()[0]
+    # Save a backup, eg imp.db.2
+    # This will only save a backup for the first upgrade, so if you have
+    # a database on version 2, and it needs to be upgraded to version 5,
+    # then you will get a backup (such as imp.db.2) but no imp.db.3 or
+    # imp.db.4
+    # We don't take a backup of the zero version database, because it can't
+    # contain any well-formed content.
+    if version < len(db_upgrades) and version > 0:
+        shutil.copy2(name, name + '.' + str(version))
     while version < len(db_upgrades):
         upgrade = db_upgrades[version]
         upgrade(con)
