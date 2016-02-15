@@ -58,6 +58,12 @@ def make_db(name):
     con.row_factory = sqlite3.Row
     con.execute('PRAGMA foreign_keys = ON;')
     version = con.execute('PRAGMA user_version;').fetchone()[0]
+    if version > len(db_upgrades):
+        version_message = ('Error, database version {}, maximum '
+                           'supported version is {}.'.format(
+                               version, len(db_upgrades)))
+        raise Exception(version_message)
+
     # Save a backup, eg imp.db.2
     # This will only save a backup for the first upgrade, so if you have
     # a database on version 2, and it needs to be upgraded to version 5,
