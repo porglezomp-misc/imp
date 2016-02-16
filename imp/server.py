@@ -20,7 +20,7 @@ class Handler(tornado.web.RequestHandler):
 
     def get(self, *args, **kwargs):
         if self.request.uri[-5:] == '.json':
-            self.set_header('Content-Type', 'text/json')
+            self.set_header('Content-Type', 'application/json')
             assert self.api_get(*args, **kwargs) is None
         else:
             assert self.page_get(*args, **kwargs) is None
@@ -148,7 +148,7 @@ class RandomImageHandler(Handler):
 
 class ImageTagsHandler(Handler):
     def get(self, image_key):
-        self.set_header('Content-Type', 'text/json')
+        self.set_header('Content-Type', 'application/json')
         image_id = self.db.execute('SELECT id FROM images WHERE key = ?',
                                    [image_key]).fetchone()
         if image_id is None:
