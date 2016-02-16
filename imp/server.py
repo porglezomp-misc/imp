@@ -281,6 +281,23 @@ class ListCategoryHandler(Handler):
         self.write(json.dumps(items))
 
 
+class ShowCategoryHandler(Handler):
+    def api_get(self, category_name):
+        category = self.db.execute('SELECT * FROM categories WHERE name = ?',
+                                   (category_name,)).fetchone()
+        if category is None:
+            self.set_status(404)
+            return
+
+        tags = self.db.execute('SELECT * FROM tags WHERE category_id = ?',
+                               (category['id'],)).fetchall()
+        tags = [tag['name'] for tag in tags]
+        self.write(json.dumps({
+            'name': category['name'],
+            'tags': tags,
+        }))
+        
+
 class CategoryTagsHandler(Handler):
     def get_tags_for_category(self, name):
         category = self.db.execute('SELECT id FROM categories WHERE name = ?',
@@ -323,6 +340,7 @@ def make_app(db):
         (r'/tags/([^/]+)/?', ViewTagHandler, db),
 
         (r'/categories\.json', ListCategoryHandler, db),
+        (r'/categories/([^/]+)\.json', ShowCategoryHandler, db),
         (r'/categories/([^/]+)/tags\.json', CategoryTagsHandler, db),
     ], debug=True, template_path='web/')
 
