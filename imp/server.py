@@ -291,6 +291,7 @@ class CategoryTagsHandler(Handler):
                                (category['id'],)).fetchall()
 
     def api_get(self, category_name):
+        category_name = category_name.replace('+', ' ')
         tags = self.get_tags_for_category(category_name)
         if tags is None:
             self.set_status(404)
