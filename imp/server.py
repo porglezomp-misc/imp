@@ -195,16 +195,19 @@ class ImageAddTagHandler(Handler):
 
 
 class ListTagHandler(Handler):
+    def get_tags(self):
+        tags = self.db.execute('SELECT tags.name, categories.name '
+                               'FROM tags '
+                               'LEFT JOIN categories '
+                               'ON categories.id = category_id '
+                               'ORDER BY categories.name').fetchall()
+        return [{'name': name, 'category': cat} for name, cat in tags]
+
     def page_get(self):
-        tags = self.db.execute('SELECT name FROM tags').fetchall()
-        self.render('tags/index.html', tags=tags)
+        self.render('tags/index.html', tags=self.get_tags())
 
     def api_get(self):
-        tags = self.db.execute('SELECT * FROM tags').fetchall()
-
-        tags = [{'name': tag['name'], 'category': tag_category(tag, self.db)}
-                for tag in tags]
-        self.write(json.dumps(tags))
+        self.write(json.dumps(self.get_tags()))
 
 
 class ViewTagHandler(Handler):
