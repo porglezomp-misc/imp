@@ -17,7 +17,7 @@ def tag_category(tag, db):
                      (tag['category_id'],)).fetchone()
     if cat is None:
         return None
-    return cat['name']
+    return cat['name'].title()
 
 
 class Handler(tornado.web.RequestHandler):
@@ -62,7 +62,8 @@ class ShowImageHandler(Handler):
     def get_image_tags(self, image):
         return self.db.execute('SELECT tags.name FROM image_tags '
                                'INNER JOIN tags ON tags.id = tag_id '
-                               'WHERE image_id = ?', [image['id']])
+                               'WHERE image_id = ?',
+                               [image['id']]).fetchall()
 
     def get_image_url(self, image):
         if image['file'] is None:
@@ -77,7 +78,7 @@ class ShowImageHandler(Handler):
 
         self.render('images/show.html', name=image['name'],
                     desc=image['description'], url=url,
-                    image_key=image_key, tags=tags.fetchall())
+                    image_key=image_key, tags=tags)
 
     def api_get(self, image_key):
         image = self.get_image(image_key)
@@ -89,7 +90,7 @@ class ShowImageHandler(Handler):
             'description': image['description'],
             'key': image['key'],
             'url': url,
-            'tags': tags,
+            'tags': [tag.title() for tag in tags],
         }))
 
 
@@ -136,7 +137,7 @@ def get_tags_json(db, image_key):
     tags = db.execute('SELECT tags.name FROM image_tags '
                       'INNER JOIN tags ON tags.id = tag_id '
                       'WHERE image_id = ?', [image_id])
-    output = json.dumps([tag['name'] for tag in tags.fetchall()])
+    output = json.dumps([tag['name'].title() for tag in tags.fetchall()])
     return output
 
 
@@ -182,13 +183,13 @@ class ImageAddTagHandler(Handler):
             return
         image_id = image_id['id']
 
-        tag_name = self.get_body_argument('name')
+        tag_name = self.get_body_argument('name').title()
         tag_id = self.db.execute('SELECT id FROM tags WHERE name = ?',
                                  (tag_name,)).fetchone()
         if tag_id is None:
             with self.db:
                 self.db.execute('INSERT INTO tags (name) VALUES (?)',
-                                (tag_name,))
+                                (tag_name.title(),))
             tag_id = self.db.execute('SELECT id FROM tags WHERE name = ?',
                                      (tag_name,)).fetchone()
         tag_id = tag_id['id']
@@ -208,7 +209,7 @@ class ListTagHandler(Handler):
                                'LEFT JOIN categories '
                                'ON categories.id = category_id '
                                'ORDER BY categories.name').fetchall()
-        return [{'name': name, 'category': cat} for name, cat in tags]
+        return [{'name': name.title(), 'category': cat.title()} for name, cat in tags]
 
     def page_get(self):
         self.render('tags/index.html', tags=self.get_tags())
@@ -219,9 +220,9 @@ class ListTagHandler(Handler):
 
 class ViewTagHandler(Handler):
     def get(self, tag_name):
-        tag_name = tag_name.replace('+', ' ')
+        tag_name = tag_name.replace('+', ' ').title()
         tag = self.db.execute('SELECT * FROM tags WHERE name = ?',
-                              [tag_name]).fetchone()
+                              (tag_name,)).fetchone()
 
         if tag is None:
             self.set_status(404)
@@ -252,8 +253,8 @@ class StaticFileHandler(tornado.web.RequestHandler):
             content_type = 'image/gif'
 
         self.set_header('Content-Type', content_type)
-        text = open(path, 'r').read()
-        self.write(text)
+        content = open(path, 'rb').read()
+        self.write(content)
 
 
 class NewTagHandler(Handler):
@@ -264,7 +265,7 @@ class NewTagHandler(Handler):
         if category_id is None:
             with db:
                 self.db.execute('INSERT INTO categories (name) VALUES (?)',
-                                (name,))
+                                (name.title(),))
             category_id = self.db.execute(
                 'SELECT id FROM categories WHERE name = ?',
                 (name,)).fetchone()
@@ -274,8 +275,8 @@ class NewTagHandler(Handler):
         self.render('tags/new.html')
 
     def post(self):
-        name = self.get_body_argument('name')
-        category = self.get_body_argument('category')
+        name = self.get_body_argument('name').title()
+        category = self.get_body_argument('category').title()
         if category:
             category_id = self.get_category_id(category)
         else:
@@ -291,7 +292,7 @@ class NewTagHandler(Handler):
 class ListCategoryHandler(Handler):
     def get_categories(self):
         categories = self.db.execute('SELECT * FROM categories;').fetchall()
-        return [{'name': cat['name']} for cat in categories]
+        return [{'name': cat['name'].title()} for cat in categories]
 
     def api_get(self):
         self.write(json.dumps(self.get_categories()))
@@ -324,8 +325,8 @@ class ShowCategoryHandler(Handler):
 
         tags = self.db.execute('SELECT * FROM tags WHERE category_id = ?',
                                (category['id'],)).fetchall()
-        tags = [tag['name'] for tag in tags]
-        return {'name': category['name'], 'tags': tags}
+        tags = [tag['name'].title() for tag in tags]
+        return {'name': category['name'].title(), 'tags': tags}
 
     def api_get(self, category_name):
         data = self.get_category_data(category_name)
@@ -334,7 +335,6 @@ class ShowCategoryHandler(Handler):
     def page_get(self, category_name):
         data = self.get_category_data(category_name)
         self.render('categories/show.html', **data)
-        
 
 
 class CategoryTagsHandler(Handler):
@@ -347,9 +347,9 @@ class CategoryTagsHandler(Handler):
                                (category['id'],)).fetchall()
 
     def api_get(self, category_name):
-        category_name = category_name.replace('+', ' ')
+        category_name = category_name.replace('+', ' ').title()
         tags = self.get_tags_for_category(category_name)
-        tags = [tag['name'] for tag in tags]
+        tags = [tag['name'].title() for tag in tags]
         self.write(json.dumps(tags))
 
 
