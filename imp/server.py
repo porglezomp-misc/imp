@@ -3,6 +3,7 @@ import json
 import tornado.ioloop
 import tornado.web
 import database
+import random
 
 
 class Handler(tornado.web.RequestHandler):
@@ -79,6 +80,17 @@ class NewImageHandler(Handler):
                 'INSERT INTO images (name, key, url, description) '
                 'VALUES (?, ?, ?, ?)', (name, key, url, description))
 
+        self.redirect('/images/{}'.format(key))
+
+
+class RandomImageHandler(Handler):
+    def get(self):
+        # TODO (2016-02-16) Caleb Jones:
+        #  Performance (can we get randomness in the database?)
+        images = self.db.execute('SELECT key FROM images;').fetchall()
+        if not images:
+            self.redirect('/')
+        key = random.choice(images)['key']
         self.redirect('/images/{}'.format(key))
 
 
@@ -187,6 +199,7 @@ def make_app(db):
         (r'/images/?', ListImageHandler, db),
         (r'/images.json', ListImageJSON, db),
         (r'/images/new/?', NewImageHandler, db),
+        (r'/images/random/?', RandomImageHandler, db),
         (r'/images/([^/]+)/?', ShowImageHandler, db),
         (r'/images/([^/]+)/raw', RawImageHandler, db),
         (r'/images/([^/]+)/tags.json', ImageTagsHandler, db),
