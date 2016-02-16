@@ -295,6 +295,20 @@ class ListCategoryHandler(Handler):
         self.render('categories/index.html', categories=self.get_categories())
 
 
+class NewCategoryHandler(Handler):
+    def get(self):
+        self.render('categories/new.html')
+
+    def post(self):
+        name = self.get_body_argument('name')
+        with self.db:
+            self.db.execute('INSERT INTO categories (name) VALUES (?)',
+                            (name,))
+        name = name.replace(' ', '+')
+        # TODO (2016-02-16) Caleb Jones:
+        # Don't redirect AJAX calls, only the client
+        self.redirect('/categories/{}'.format(name))
+
 class ShowCategoryHandler(Handler):
     def get_category_data(self, name):
         name = name.replace('+', ' ')
@@ -358,6 +372,7 @@ def make_app(db):
 
         (r'/categories\.json', ListCategoryHandler, db),
         (r'/categories/?', ListCategoryHandler, db),
+        (r'/categories/new/?', NewCategoryHandler, db),
         (r'/categories/([^/]+)\.json', ShowCategoryHandler, db),
         (r'/categories/([^/]+)/?', ShowCategoryHandler, db),
         (r'/categories/([^/]+)/tags\.json', CategoryTagsHandler, db),

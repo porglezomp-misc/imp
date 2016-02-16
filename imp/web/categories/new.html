@@ -1,0 +1,9 @@
+{% extends "../base.html" %}
+
+{% block title %}New Category{% end %}
+{% block main %}
+  <form action="/categories/new" method="POST">
+    <label>Name <input type="text" name="name"></label>
+    <input type="submit" value="Submit">
+  </form>
+{% end %}
