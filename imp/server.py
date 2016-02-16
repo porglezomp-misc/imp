@@ -72,14 +72,13 @@ class ShowImageHandler(Handler):
         tags = self.get_image_url(image)
         url = self.get_image_url(image)
 
-        message = json.dumps({
+        self.write(json.dumps({
             'name': image['name'],
             'description': image['description'],
             'key': image['key'],
             'url': url,
             'tags': tags,
-        })
-        self.write(message)
+        }))
 
 
 class RawImageHandler(Handler):
@@ -136,8 +135,7 @@ class RandomImageHandler(Handler):
             self.set_status(404)
             return
         url = '/images/{}'.format(key)
-        message = json.dumps({'key': key, 'url': url})
-        self.write(message)
+        self.write(json.dumps({'key': key, 'url': url}))
 
 
 class ImageTagsHandler(Handler):
@@ -244,8 +242,25 @@ class ListCategoryHandler(Handler):
     def api_get(self):
         categories = self.get_categories()
         items = [{'name': cat['name']} for cat in categories]
-        message = json.dumps(items)
-        self.write(message)
+        self.write(json.dumps(items))
+
+
+class CategoryTagsHandler(Handler):
+    def get_tags_for_category(self, name):
+        category = self.db.execute('SELECT id FROM categories WHERE name = ?',
+                                   (name,)).fetchone()
+        if category is None:
+            return None
+        return self.db.execute('SELECT name FROM tags WHERE category_id = ?',
+                               (category['id'],)).fetchall()
+
+    def api_get(self, category_name):
+        tags = self.get_tags_for_category(category_name)
+        if tags is None:
+            self.set_status(404)
+            return
+        tags = [tag['name'] for tag in tags]
+        self.write(json.dumps(tags))
         
 
 def make_app(db):
@@ -270,6 +285,7 @@ def make_app(db):
         (r'/tags/([^/]+)/?', ViewTagHandler, db),
         
         (r'/categories\.json', ListCategoryHandler, db),
+        (r'/categories/([^/]+)/tags\.json', CategoryTagsHandler, db),
     ], debug=True, template_path='web/')
 
 
