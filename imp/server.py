@@ -10,16 +10,20 @@ class Handler(tornado.web.RequestHandler):
     def initialize(self, db):
         self.db = db
 
+    def get(self, *args, **kwargs):
+        if self.request.uri[-5:] == '.json':
+            self.set_header('Content-Type', 'text/json')
+            self.api_get(*args, **kwargs)
+        else:
+            self.page_get(*args, **kwargs)
+
 
 class ListImageHandler(Handler):
-    def get(self):
+    def page_get(self):
         images = self.db.execute("SELECT key, name FROM images;")
         self.render('images/index.html', images=images.fetchall())
 
-
-class ListImageJSON(Handler):
-    def get(self):
-        self.set_header("Content-Type", "text/json")
+    def api_get(self):
         images = self.db.execute("SELECT * FROM images")
         entries = [{'key': img['key'], 'name': img['name']}
                    for img in images.fetchall()]
@@ -28,26 +32,54 @@ class ListImageJSON(Handler):
 
 
 class ShowImageHandler(Handler):
-    def get(self, image_key):
-        image = self.db.execute('SELECT * FROM images WHERE key = ?',
-                                [image_key]).fetchone()
+    def get_image(self, image_key):
+        return self.db.execute('SELECT * FROM images WHERE key = ?',
+                               [image_key]).fetchone()
+
+    def get_image_tags(self, image):
+        return self.db.execute('SELECT tags.name FROM image_tags '
+                               'INNER JOIN tags ON tags.id = tag_id '
+                               'WHERE image_id = ?', [image['id']])
+
+    def get_image_url(self, image):
+        if image['file'] is None:
+            url = image['url']
+        else:
+            url = '/static/' + image['file']
+        return url
+
+
+    def page_get(self, image_key):
+        image = self.get_image(image_key)
         if image is None:
             self.set_status(404)
             self.write('image not found')
             return
 
-        tags = self.db.execute('SELECT tags.name FROM image_tags '
-                               'INNER JOIN tags ON tags.id = tag_id '
-                               'WHERE image_id = ?', [image['id']])
-
-        if image['file'] is None:
-            url = image['url']
-        else:
-            url = '/static/' + image['file']
+        tags = self.get_image_tags(image)
+        url = self.get_image_url(image)
 
         self.render('images/show.html', name=image['name'],
                     desc=image['description'], url=url,
-                     image_key=image_key, tags=tags.fetchall())
+                    image_key=image_key, tags=tags.fetchall())
+
+    def api_get(self, image_key):
+        image = self.get_image(image_key)
+        if image is None:
+            self.set_status(404)
+            return
+
+        tags = self.get_image_url(image)
+        url = self.get_image_url(image)
+
+        message = json.dumps({
+            'name': image['name'],
+            'description': image['description'],
+            'key': image['key'],
+            'url': url,
+            'tags': tags,
+        })
+        self.write(message)
 
 
 class RawImageHandler(Handler):
@@ -84,19 +116,33 @@ class NewImageHandler(Handler):
 
 
 class RandomImageHandler(Handler):
-    def get(self):
+    def random_image_key(self):
         # TODO (2016-02-16) Caleb Jones:
-        #  Performance (can we get randomness in the database?)
+        # Performance (can we get randomness in the database?)
         images = self.db.execute('SELECT key FROM images;').fetchall()
         if not images:
+            return None
+        return random.choice(images)['key']
+
+    def get_page(self):
+        key = self.random_image_key()
+        if key is None:
             self.redirect('/')
-        key = random.choice(images)['key']
         self.redirect('/images/{}'.format(key))
+
+    def get_api(self):
+        key = self.random_image_key()
+        if key is None:
+            self.set_status(404)
+            return
+        url = '/images/{}'.format(key)
+        message = json.dumps({'key': key, 'url': url})
+        self.write(message)
 
 
 class ImageTagsHandler(Handler):
     def get(self, image_key):
-        self.set_header("Content-Type", "text/json")
+        self.set_header('Content-Type', 'text/json')
         image_id = self.db.execute('SELECT id FROM images WHERE key = ?',
                                    [image_key]).fetchone()
         if image_id is None:
@@ -197,12 +243,14 @@ def make_app(db):
         (r'/', ListImageHandler, db),
         (r'/static/(.*)', StaticFileHandler),
         (r'/images/?', ListImageHandler, db),
-        (r'/images.json', ListImageJSON, db),
+        (r'/images\.json', ListImageHandler, db),
         (r'/images/new/?', NewImageHandler, db),
+        (r'/images/random\.json', RandomImageHandler, db),
         (r'/images/random/?', RandomImageHandler, db),
+        (r'/images/([^/]+)\.json', ShowImageHandler, db),
         (r'/images/([^/]+)/?', ShowImageHandler, db),
         (r'/images/([^/]+)/raw', RawImageHandler, db),
-        (r'/images/([^/]+)/tags.json', ImageTagsHandler, db),
+        (r'/images/([^/]+)/tags\.json', ImageTagsHandler, db),
         (r'/images/([^/]+)/tags/new/?', ImageAddTagHandler, db),
         (r'/tags/?', ListTagHandler, db),
         (r'/tags/new/?', NewTagHandler, db),
