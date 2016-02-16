@@ -6,6 +6,14 @@ import database
 import random
 
 
+def tag_category(tag, db):
+    cat = db.execute('SELECT name FROM categories WHERE id = ?',
+                     (tag['category_id'],)).fetchone()
+    if cat is None:
+        return None
+    return cat['name']
+
+
 class Handler(tornado.web.RequestHandler):
     def initialize(self, db):
         self.db = db
@@ -148,10 +156,12 @@ class ImageTagsHandler(Handler):
             return
 
         image_id = image_id[0]
-        tags = self.db.execute('SELECT tags.name FROM image_tags '
+        tags = self.db.execute('SELECT tags.name, tags.category_id FROM image_tags '
                                'INNER JOIN tags ON tags.id = tag_id '
                                'WHERE image_id = ?', [image_id])
-        output = json.dumps([tag['name'] for tag in tags.fetchall()])
+        tags = [{'name': tag['name'], 'category': tag_category(tag, self.db)}
+                for tag in tags.fetchall()]
+        output = json.dumps(tags)
         self.write(output)
 
 
@@ -192,14 +202,8 @@ class ListTagHandler(Handler):
     def api_get(self):
         tags = self.db.execute('SELECT * FROM tags').fetchall()
 
-        def tag_category(tag):
-            cat = self.db.execute('SELECT name FROM categories WHERE id = ?',
-                                  (tag['category_id'],)).fetchone()
-            if cat is None:
-                return None
-            return cat['name']
-
-        tags = [{'name': t['name'], 'category': tag_category(t)} for t in tags]
+        tags = [{'name': tag['name'], 'category': tag_category(tag, self.db)}
+                for tag in tags]
         self.write(json.dumps(tags))
 
 
