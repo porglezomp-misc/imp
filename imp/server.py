@@ -220,11 +220,18 @@ class ViewTagHandler(Handler):
             self.set_status(404)
             return
 
+        category = self.db.execute(
+            'SELECT * FROM categories WHERE id = ?',
+            (tag['category_id'],)).fetchone()
+        if category is not None:
+            category = category['name']
+
         images = self.db.execute(
             'SELECT images.key, images.name FROM image_tags '
             'INNER JOIN images ON images.id = image_id '
             'WHERE tag_id = ?', [tag['id']]).fetchmany(100)
-        self.render('tags/show.html', name=tag_name, images=images)
+        self.render('tags/show.html', name=tag_name,
+                    images=images, category=category)
 
 
 class StaticFileHandler(tornado.web.RequestHandler):
