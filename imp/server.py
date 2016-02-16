@@ -2,7 +2,7 @@ import sqlite3
 import json
 import tornado.ioloop
 import tornado.web
-import migrations
+import database
 import random
 
 
@@ -385,7 +385,7 @@ def make_app(db):
 
 
 if __name__ == '__main__':
-    db = migrations.migrate_db('imp.db')
+    db = database.Database('imp.db')
     app = make_app(db)
     app.listen(8888)
     tornado.ioloop.IOLoop.current().start()
