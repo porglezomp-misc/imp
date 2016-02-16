@@ -1,6 +1,7 @@
 import sqlite3
 import logging
 import shutil
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -69,15 +70,24 @@ def make_db(name):
     # imp.db.4
     # We don't take a backup of the zero version database, because it can't
     # contain any well-formed content.
+    backup = None
     if version < len(db_upgrades) and version > 0:
-        shutil.copy2(name, name + '.' + str(version))
-    while version < len(db_upgrades):
-        upgrade = db_upgrades[version]
-        upgrade(con)
-        old_version = version
-        db.execute('PRAGMA user_version = {};'.format(old_version + 1))
-        version = con.execute('PRAGMA user_version;').fetchone()[0]
-        assert version == old_version + 1
-        logger.info("Upgraded schema from user version %d to %d",
-                    old_version, version)
+        backup = name + '.' + str(version)
+        shutil.copy2(name, backup)
+    try:
+        while version < len(db_upgrades):
+            upgrade = db_upgrades[version]
+            upgrade(con)
+            old_version = version
+            db.execute('PRAGMA user_version = {};'.format(old_version + 1))
+            version = con.execute('PRAGMA user_version;').fetchone()[0]
+            assert version == old_version + 1
+            logger.info("Upgraded schema from user version %d to %d",
+                        old_version, version)
+    except:
+        if backup:
+            os.remove(name)
+            shutil.copy2(backup, name)
+        raise
+
     return con
