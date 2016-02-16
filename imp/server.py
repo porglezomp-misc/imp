@@ -294,21 +294,33 @@ class ListCategoryHandler(Handler):
 
 
 class ShowCategoryHandler(Handler):
-    def api_get(self, category_name):
+    def get_category_data(self, name):
+        name = name.replace('+', ' ')
         category = self.db.execute('SELECT * FROM categories WHERE name = ?',
-                                   (category_name,)).fetchone()
+                                   (name,)).fetchone()
         if category is None:
-            self.set_status(404)
-            return
+            return None
 
         tags = self.db.execute('SELECT * FROM tags WHERE category_id = ?',
                                (category['id'],)).fetchall()
         tags = [tag['name'] for tag in tags]
-        self.write(json.dumps({
-            'name': category['name'],
-            'tags': tags,
-        }))
+        return {'name': category['name'], 'tags': tags}
+
+    def api_get(self, category_name):
+        data = self.get_category_data(category_name)
+        if data is None:
+            self.set_status(404)
+            return
+        self.write(json.dumps(data))
+
+    def page_get(self, category_name):
+        data = self.get_category_data(category_name)
+        if data is None:
+            self.set_status(404)
+            return
+        self.render('categories/show.html', **data)
         
+
 
 class CategoryTagsHandler(Handler):
     def get_tags_for_category(self, name):
@@ -354,6 +366,7 @@ def make_app(db):
         (r'/categories\.json', ListCategoryHandler, db),
         (r'/categories/?', ListCategoryHandler, db),
         (r'/categories/([^/]+)\.json', ShowCategoryHandler, db),
+        (r'/categories/([^/]+)/?', ShowCategoryHandler, db),
         (r'/categories/([^/]+)/tags\.json', CategoryTagsHandler, db),
     ], debug=True, template_path='web/')
 
