@@ -27,7 +27,6 @@ CREATE TABLE image_tags (
     image_id INTEGER NOT NULL REFERENCES images(id) ON UPDATE CASCADE,
     tag_id INTEGER NOT NULL REFERENCES tags(id) ON UPDATE CASCADE
 );''')
-        db.execute('PRAGMA user_version = 1;')
 
 
 def database_1_to_2(db):
@@ -47,7 +46,6 @@ CREATE TABLE tags (
 );
 
 INSERT INTO tags (id, name) SELECT id, name FROM tags_old;''')
-        db.execute('PRAGMA user_version = 2;')
 
 
 db_upgrades = [database_0_to_1, database_1_to_2]
@@ -77,7 +75,9 @@ def make_db(name):
         upgrade = db_upgrades[version]
         upgrade(con)
         old_version = version
+        db.execute('PRAGMA user_version = {};'.format(old_version + 1))
         version = con.execute('PRAGMA user_version;').fetchone()[0]
+        assert version == old_version + 1
         logger.info("Upgraded schema from user version %d to %d",
                     old_version, version)
     return con
