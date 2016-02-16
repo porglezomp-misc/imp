@@ -283,12 +283,14 @@ class NewTagHandler(Handler):
 
 class ListCategoryHandler(Handler):
     def get_categories(self):
-        return self.db.execute('SELECT * FROM categories;').fetchall()
+        categories = self.db.execute('SELECT * FROM categories;').fetchall()
+        return [{'name': cat['name']} for cat in categories]
 
     def api_get(self):
-        categories = self.get_categories()
-        items = [{'name': cat['name']} for cat in categories]
-        self.write(json.dumps(items))
+        self.write(json.dumps(self.get_categories()))
+
+    def page_get(self):
+        self.render('categories/index.html', categories=self.get_categories())
 
 
 class ShowCategoryHandler(Handler):
@@ -350,6 +352,7 @@ def make_app(db):
         (r'/tags/([^/]+)/?', ViewTagHandler, db),
 
         (r'/categories\.json', ListCategoryHandler, db),
+        (r'/categories/?', ListCategoryHandler, db),
         (r'/categories/([^/]+)\.json', ShowCategoryHandler, db),
         (r'/categories/([^/]+)/tags\.json', CategoryTagsHandler, db),
     ], debug=True, template_path='web/')
