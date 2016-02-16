@@ -237,11 +237,23 @@ class NewTagHandler(Handler):
         self.redirect('/tags/{}'.format(name))
 
 
+class ListCategoryHandler(Handler):
+    def get_categories(self):
+        return self.db.execute('SELECT * FROM categories;').fetchall()
+
+    def api_get(self):
+        categories = self.get_categories()
+        items = [{'name': cat['name']} for cat in categories]
+        message = json.dumps(items)
+        self.write(message)
+        
+
 def make_app(db):
     db = {'db': db}
     return tornado.web.Application([
         (r'/', ListImageHandler, db),
         (r'/static/(.*)', StaticFileHandler),
+
         (r'/images/?', ListImageHandler, db),
         (r'/images\.json', ListImageHandler, db),
         (r'/images/new/?', NewImageHandler, db),
@@ -252,9 +264,12 @@ def make_app(db):
         (r'/images/([^/]+)/raw', RawImageHandler, db),
         (r'/images/([^/]+)/tags\.json', ImageTagsHandler, db),
         (r'/images/([^/]+)/tags/new/?', ImageAddTagHandler, db),
+
         (r'/tags/?', ListTagHandler, db),
         (r'/tags/new/?', NewTagHandler, db),
         (r'/tags/([^/]+)/?', ViewTagHandler, db),
+        
+        (r'/categories\.json', ListCategoryHandler, db),
     ], debug=True, template_path='web/')
 
 
