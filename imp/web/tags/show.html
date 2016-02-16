@@ -2,7 +2,12 @@
 
 {% block title %}{{ name }}{% end %}
 {% block main %}
-  <h1>{{ name }}</h1>
+  <h1>
+    {{ name }}
+    {% if category %}
+      ({{ category }})
+    {% end %}
+  </h1>
   <ul>
     {% for image in images %}
     <li>

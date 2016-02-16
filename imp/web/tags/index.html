@@ -6,6 +6,9 @@
   <ul>
     {% for tag in tags %}
       <li>
+        {% if tag['category'] %}
+          {{ tag['category'] }}:
+        {% end %}
         <a href="tags/{{ tag['name'].replace(' ', '+') }}">
           {{ tag['name'] }}
         </a>

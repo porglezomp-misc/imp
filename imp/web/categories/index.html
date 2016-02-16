@@ -1,0 +1,15 @@
+{% extends "../base.html" %}
+
+{% block title %}Categories{% end %}
+{% block main %}
+  <a href="/categories/new">+ New Category</a>
+  <ul>
+    {% for cat in categories %}
+      <li>
+        <a href="/categories/{{ cat['name'].replace(' ', '+') }}">
+          {{ cat['name'] }}
+        </a>
+      </li>
+    {% end %}
+  </ul>
+{% end %}

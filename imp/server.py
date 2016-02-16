@@ -3,22 +3,47 @@ import json
 import tornado.ioloop
 import tornado.web
 import database
+import random
+
+
+class HttpError(Exception):
+    def __init__(self, code, msg):
+        super(Exception, self).__init__(msg)
+        self.code = code
+
+
+def tag_category(tag, db):
+    cat = db.execute('SELECT name FROM categories WHERE id = ?',
+                     (tag['category_id'],)).fetchone()
+    if cat is None:
+        return None
+    return cat['name']
 
 
 class Handler(tornado.web.RequestHandler):
     def initialize(self, db):
         self.db = db
 
+    def get(self, *args, **kwargs):
+        if self.request.uri[-5:] == '.json':
+            self.set_header('Content-Type', 'application/json')
+            try:
+                assert self.api_get(*args, **kwargs) is None
+            except HttpError as e:
+                self.set_status(e.code)
+        else:
+            try:
+                assert self.page_get(*args, **kwargs) is None
+            except HttpError as e:
+                self.set_status(e.code)
+
 
 class ListImageHandler(Handler):
-    def get(self):
+    def page_get(self):
         images = self.db.execute("SELECT key, name FROM images;")
         self.render('images/index.html', images=images.fetchall())
 
-
-class ListImageJSON(Handler):
-    def get(self):
-        self.set_header("Content-Type", "text/json")
+    def api_get(self):
         images = self.db.execute("SELECT * FROM images")
         entries = [{'key': img['key'], 'name': img['name']}
                    for img in images.fetchall()]
@@ -27,26 +52,45 @@ class ListImageJSON(Handler):
 
 
 class ShowImageHandler(Handler):
-    def get(self, image_key):
-        image = self.db.execute('SELECT * FROM images WHERE key = ?',
-                                [image_key]).fetchone()
-        if image is None:
-            self.set_status(404)
-            self.write('image not found')
-            return
+    def get_image(self, image_key):
+        img = self.db.execute('SELECT * FROM images WHERE key = ?',
+                              [image_key]).fetchone()
+        if img is None:
+            raise HttpError(404, "Image '{}' not found".format(image_key))
+        return img
 
-        tags = self.db.execute('SELECT tags.name FROM image_tags '
+    def get_image_tags(self, image):
+        return self.db.execute('SELECT tags.name FROM image_tags '
                                'INNER JOIN tags ON tags.id = tag_id '
                                'WHERE image_id = ?', [image['id']])
 
+    def get_image_url(self, image):
         if image['file'] is None:
-            url = image['url']
-        else:
-            url = '/static/' + image['file']
+            return image['url']
+        return '/static/' + image['file']
+
+
+    def page_get(self, image_key):
+        image = self.get_image(image_key)
+        tags = self.get_image_tags(image)
+        url = self.get_image_url(image)
 
         self.render('images/show.html', name=image['name'],
                     desc=image['description'], url=url,
-                     image_key=image_key, tags=tags.fetchall())
+                    image_key=image_key, tags=tags.fetchall())
+
+    def api_get(self, image_key):
+        image = self.get_image(image_key)
+        tags = self.get_image_url(image)
+        url = self.get_image_url(image)
+
+        self.write(json.dumps({
+            'name': image['name'],
+            'description': image['description'],
+            'key': image['key'],
+            'url': url,
+            'tags': tags,
+        }))
 
 
 class RawImageHandler(Handler):
@@ -96,14 +140,36 @@ def get_tags_json(db, image_key):
     return output
 
 
+class RandomImageHandler(Handler):
+    def random_image_key(self):
+        # TODO (2016-02-16) Caleb Jones:
+        # Performance (can we get randomness in the database?)
+        images = self.db.execute('SELECT key FROM images;').fetchall()
+        if not images:
+            raise HttpError(404, "No images, cannot select random image")
+        return random.choice(images)['key']
+
+    def get_page(self):
+        try:
+            key = self.random_image_key()
+        except HttpError:
+            self.redirect('/')
+        self.redirect('/images/{}'.format(key))
+
+    def get_api(self):
+        key = self.random_image_key()
+        url = '/images/{}'.format(key)
+        self.write(json.dumps({'key': key, 'url': url}))
+
+
 class ImageTagsHandler(Handler):
     def get(self, image_key):
+        self.set_header('Content-Type', 'application/json')
         output = get_tags_json(self.db, image_key)
         if output is None:
             self.set_status(404)
             return
 
-        self.set_header("Content-Type", "text/json")
         self.write(output)
 
 
@@ -136,9 +202,19 @@ class ImageAddTagHandler(Handler):
 
 
 class ListTagHandler(Handler):
-    def get(self):
-        tags = self.db.execute('SELECT name FROM tags').fetchmany(100)
-        self.render('tags/index.html', tags=tags)
+    def get_tags(self):
+        tags = self.db.execute('SELECT tags.name, categories.name '
+                               'FROM tags '
+                               'LEFT JOIN categories '
+                               'ON categories.id = category_id '
+                               'ORDER BY categories.name').fetchall()
+        return [{'name': name, 'category': cat} for name, cat in tags]
+
+    def page_get(self):
+        self.render('tags/index.html', tags=self.get_tags())
+
+    def api_get(self):
+        self.write(json.dumps(self.get_tags()))
 
 
 class ViewTagHandler(Handler):
@@ -151,11 +227,18 @@ class ViewTagHandler(Handler):
             self.set_status(404)
             return
 
+        category = self.db.execute(
+            'SELECT * FROM categories WHERE id = ?',
+            (tag['category_id'],)).fetchone()
+        if category is not None:
+            category = category['name']
+
         images = self.db.execute(
             'SELECT images.key, images.name FROM image_tags '
             'INNER JOIN images ON images.id = image_id '
             'WHERE tag_id = ?', [tag['id']]).fetchmany(100)
-        self.render('tags/show.html', name=tag_name, images=images)
+        self.render('tags/show.html', name=tag_name,
+                    images=images, category=category)
 
 
 class StaticFileHandler(tornado.web.RequestHandler):
@@ -174,16 +257,100 @@ class StaticFileHandler(tornado.web.RequestHandler):
 
 
 class NewTagHandler(Handler):
+    def get_category_id(self, name):
+        category_id = self.db.execute(
+            'SELECT id FROM categories WHERE name = ?',
+            (name,)).fetchone()
+        if category_id is None:
+            with db:
+                self.db.execute('INSERT INTO categories (name) VALUES (?)',
+                                (name,))
+            category_id = self.db.execute(
+                'SELECT id FROM categories WHERE name = ?',
+                (name,)).fetchone()
+        return category_id['id']
+
     def get(self):
         self.render('tags/new.html')
 
     def post(self):
-        name = self.get_body_argument("name")
+        name = self.get_body_argument('name')
+        category = self.get_body_argument('category')
+        if category:
+            category_id = self.get_category_id(category)
+        else:
+            category_id = None
+
         with db:
-            self.db.execute('INSERT INTO tags (name) VALUES (?)',
-                            (name,))
+            self.db.execute('INSERT INTO tags (name, category_id) '
+                            'VALUES (?, ?)', (name, category_id))
         name = name.replace(' ', '+')
         self.redirect('/tags/{}'.format(name))
+
+
+class ListCategoryHandler(Handler):
+    def get_categories(self):
+        categories = self.db.execute('SELECT * FROM categories;').fetchall()
+        return [{'name': cat['name']} for cat in categories]
+
+    def api_get(self):
+        self.write(json.dumps(self.get_categories()))
+
+    def page_get(self):
+        self.render('categories/index.html', categories=self.get_categories())
+
+
+class NewCategoryHandler(Handler):
+    def get(self):
+        self.render('categories/new.html')
+
+    def post(self):
+        name = self.get_body_argument('name')
+        with self.db:
+            self.db.execute('INSERT INTO categories (name) VALUES (?)',
+                            (name,))
+        name = name.replace(' ', '+')
+        # TODO (2016-02-16) Caleb Jones:
+        # Don't redirect AJAX calls, only the client
+        self.redirect('/categories/{}'.format(name))
+
+class ShowCategoryHandler(Handler):
+    def get_category_data(self, name):
+        name = name.replace('+', ' ')
+        category = self.db.execute('SELECT * FROM categories WHERE name = ?',
+                                   (name,)).fetchone()
+        if category is None:
+            raise HttpError(404, "Category '{}' not found".format(name))
+
+        tags = self.db.execute('SELECT * FROM tags WHERE category_id = ?',
+                               (category['id'],)).fetchall()
+        tags = [tag['name'] for tag in tags]
+        return {'name': category['name'], 'tags': tags}
+
+    def api_get(self, category_name):
+        data = self.get_category_data(category_name)
+        self.write(json.dumps(data))
+
+    def page_get(self, category_name):
+        data = self.get_category_data(category_name)
+        self.render('categories/show.html', **data)
+        
+
+
+class CategoryTagsHandler(Handler):
+    def get_tags_for_category(self, name):
+        category = self.db.execute('SELECT id FROM categories WHERE name = ?',
+                                   (name,)).fetchone()
+        if category is None:
+            raise HttpError(404, "Category '{}' not found".format(name))
+        return self.db.execute('SELECT name FROM tags WHERE category_id = ?',
+                               (category['id'],)).fetchall()
+
+    def api_get(self, category_name):
+        category_name = category_name.replace('+', ' ')
+        tags = self.get_tags_for_category(category_name)
+        tags = [tag['name'] for tag in tags]
+        self.write(json.dumps(tags))
 
 
 def make_app(db):
@@ -191,16 +358,29 @@ def make_app(db):
     return tornado.web.Application([
         (r'/', ListImageHandler, db),
         (r'/static/(.*)', StaticFileHandler),
+
+        (r'/images\.json', ListImageHandler, db),
         (r'/images/?', ListImageHandler, db),
-        (r'/images.json', ListImageJSON, db),
         (r'/images/new/?', NewImageHandler, db),
+        (r'/images/random\.json', RandomImageHandler, db),
+        (r'/images/random/?', RandomImageHandler, db),
+        (r'/images/([^/]+)\.json', ShowImageHandler, db),
         (r'/images/([^/]+)/?', ShowImageHandler, db),
         (r'/images/([^/]+)/raw', RawImageHandler, db),
-        (r'/images/([^/]+)/tags.json', ImageTagsHandler, db),
+        (r'/images/([^/]+)/tags\.json', ImageTagsHandler, db),
         (r'/images/([^/]+)/tags/new/?', ImageAddTagHandler, db),
+
+        (r'/tags\.json', ListTagHandler, db),
         (r'/tags/?', ListTagHandler, db),
         (r'/tags/new/?', NewTagHandler, db),
         (r'/tags/([^/]+)/?', ViewTagHandler, db),
+
+        (r'/categories\.json', ListCategoryHandler, db),
+        (r'/categories/?', ListCategoryHandler, db),
+        (r'/categories/new/?', NewCategoryHandler, db),
+        (r'/categories/([^/]+)\.json', ShowCategoryHandler, db),
+        (r'/categories/([^/]+)/?', ShowCategoryHandler, db),
+        (r'/categories/([^/]+)/tags\.json', CategoryTagsHandler, db),
     ], debug=True, template_path='web/')
 
 
