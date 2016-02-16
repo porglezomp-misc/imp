@@ -8,7 +8,7 @@ import os
 import sys
 import sqlite3
 
-import database
+import migrations
 
 
 logging.basicConfig(level=logging.INFO)
@@ -73,7 +73,7 @@ RESOURCES = 'resources'
 
 if __name__ == '__main__':
     # TODO: Command line interface
-    db = database.make_db('imp.db')
+    db = migrations.migrate_db('imp.db')
     find_many(sys.argv[1], 'out')
     not_downloaded = db.execute('SELECT * FROM images WHERE file IS NULL;')
     if not os.path.isdir(RESOURCES):

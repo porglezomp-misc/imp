@@ -83,7 +83,7 @@ DROP TABLE categories_old;''')
 db_upgrades = [database_0_to_1, database_1_to_2, database_2_to_3]
 
 
-def make_db(name):
+def migrate_db(name):
     con = sqlite3.connect(name)
     con.row_factory = sqlite3.Row
     con.execute('PRAGMA foreign_keys = OFF;')
