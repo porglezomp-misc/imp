@@ -13,9 +13,9 @@ class Handler(tornado.web.RequestHandler):
     def get(self, *args, **kwargs):
         if self.request.uri[-5:] == '.json':
             self.set_header('Content-Type', 'text/json')
-            self.api_get(*args, **kwargs)
+            assert self.api_get(*args, **kwargs) is None
         else:
-            self.page_get(*args, **kwargs)
+            assert self.page_get(*args, **kwargs) is None
 
 
 class ListImageHandler(Handler):
@@ -185,9 +185,22 @@ class ImageAddTagHandler(Handler):
 
 
 class ListTagHandler(Handler):
-    def get(self):
-        tags = self.db.execute('SELECT name FROM tags').fetchmany(100)
+    def page_get(self):
+        tags = self.db.execute('SELECT name FROM tags').fetchall()
         self.render('tags/index.html', tags=tags)
+
+    def api_get(self):
+        tags = self.db.execute('SELECT * FROM tags').fetchall()
+
+        def tag_category(tag):
+            cat = self.db.execute('SELECT name FROM categories WHERE id = ?',
+                                  (tag['category_id'],)).fetchone()
+            if cat is None:
+                return None
+            return cat['name']
+
+        tags = [{'name': t['name'], 'category': tag_category(t)} for t in tags]
+        self.write(json.dumps(tags))
 
 
 class ViewTagHandler(Handler):
@@ -261,7 +274,7 @@ class CategoryTagsHandler(Handler):
             return
         tags = [tag['name'] for tag in tags]
         self.write(json.dumps(tags))
-        
+
 
 def make_app(db):
     db = {'db': db}
@@ -269,8 +282,8 @@ def make_app(db):
         (r'/', ListImageHandler, db),
         (r'/static/(.*)', StaticFileHandler),
 
-        (r'/images/?', ListImageHandler, db),
         (r'/images\.json', ListImageHandler, db),
+        (r'/images/?', ListImageHandler, db),
         (r'/images/new/?', NewImageHandler, db),
         (r'/images/random\.json', RandomImageHandler, db),
         (r'/images/random/?', RandomImageHandler, db),
@@ -280,10 +293,11 @@ def make_app(db):
         (r'/images/([^/]+)/tags\.json', ImageTagsHandler, db),
         (r'/images/([^/]+)/tags/new/?', ImageAddTagHandler, db),
 
+        (r'/tags\.json', ListTagHandler, db),
         (r'/tags/?', ListTagHandler, db),
         (r'/tags/new/?', NewTagHandler, db),
         (r'/tags/([^/]+)/?', ViewTagHandler, db),
-        
+
         (r'/categories\.json', ListCategoryHandler, db),
         (r'/categories/([^/]+)/tags\.json', CategoryTagsHandler, db),
     ], debug=True, template_path='web/')
