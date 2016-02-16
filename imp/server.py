@@ -240,14 +240,33 @@ class StaticFileHandler(tornado.web.RequestHandler):
 
 
 class NewTagHandler(Handler):
+    def get_category_id(self, name):
+        category_id = self.db.execute(
+            'SELECT id FROM categories WHERE name = ?',
+            (name,)).fetchone()
+        if category_id is None:
+            with db:
+                self.db.execute('INSERT INTO categories (name) VALUES (?)',
+                                (name,))
+            category_id = self.db.execute(
+                'SELECT id FROM categories WHERE name = ?',
+                (name,)).fetchone()
+        return category_id['id']
+
     def get(self):
         self.render('tags/new.html')
 
     def post(self):
-        name = self.get_body_argument("name")
+        name = self.get_body_argument('name')
+        category = self.get_body_argument('category')
+        if category:
+            category_id = self.get_category_id(category)
+        else:
+            category_id = None
+
         with db:
-            self.db.execute('INSERT INTO tags (name) VALUES (?)',
-                            (name,))
+            self.db.execute('INSERT INTO tags (name, category_id) '
+                            'VALUES (?, ?)', (name, category_id))
         name = name.replace(' ', '+')
         self.redirect('/tags/{}'.format(name))
 
