@@ -40,12 +40,12 @@ class Handler(tornado.web.RequestHandler):
 
 class ListImageHandler(Handler):
     def page_get(self):
-        images = self.db.execute("SELECT key, name FROM images;")
-        self.render('images/index.html', images=images.fetchall())
+        images = self.db.images()
+        self.render('images/index.html', images=images)
 
     def api_get(self):
-        images = self.db.execute("SELECT * FROM images")
-        entries = [{'key': img['key'], 'name': img['name']}
+        images = self.db.images()
+        entries = [{'key': img.key, 'name': img.name}
                    for img in images.fetchall()]
         out = json.dumps(entries)
         self.write(out)
@@ -290,8 +290,8 @@ class NewTagHandler(Handler):
 
 class ListCategoryHandler(Handler):
     def get_categories(self):
-        categories = self.db.execute('SELECT * FROM categories;').fetchall()
-        return [{'name': cat['name']} for cat in categories]
+        categories = self.db.categories()
+        return [{'name': cat.name} for cat in categories]
 
     def api_get(self):
         self.write(json.dumps(self.get_categories()))
