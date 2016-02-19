@@ -5,6 +5,7 @@ import tornado.web
 import database
 import random
 import argparse
+import os
 
 
 class HttpError(Exception):
@@ -387,8 +388,11 @@ if __name__ == '__main__':
                         help="the port to run the server on")
     parser.add_argument('-d', '--database', metavar='DB', default='imp.db',
                         type=str, help="the name of the database to use")
-    
+
     args = parser.parse_args()
+    directory = os.path.dirname(args.database)
+    if directory and not os.path.isdir(directory):
+        os.makedirs(directory)
     db = database.make_db(args.database)
     app = make_app(db)
     app.listen(args.port)
