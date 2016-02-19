@@ -1,10 +1,14 @@
 #!/bin/bash
 
-DBNAME="db/test/$(date -Ins).db"
-pushd imp
-python server.py -d "$DBNAME" &> test_server.log &
-popd
-echo $! > test.pid
+# Killing the runtest script will kill all the children
+trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+
+(
+cd imp/
+DBNAME="db/test/$(date -Ins | sed 's|T|/|; s|,|/|').db"
+python server.py -d "$DBNAME" &> test_server.log
+) &
+
 sleep 0.5
+
 casperjs test tests/
-kill %%
