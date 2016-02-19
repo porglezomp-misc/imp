@@ -145,6 +145,21 @@ casper.test.begin('Test the critical paths of the application from a fresh start
         this.clickLabel('Steven Universe');
     });
 
+    casper.waitForUrl('/tags/Steven+Universe', function() {
+        test.assertHttpStatus(200, 'The tag should load successfully');
+        test.assertElementCount('main li a', 1,
+                                'There should be one image in the tag');
+        test.assertSelectorHasText('main li a', 'My Steven Universe Poster!',
+                                  'The image link should have its title');
+    });
+
+    casper.thenOpen('http://localhost:8888/tags/new', function() {
+        test.assertHttpStatus(200, 'The tag creation page should still load successfully');
+        this.fill('form[action="/tags/new"]', {
+            name: 'Connie',
+            category: 'Character',
+        }, true);
+    });
     casper.run(function() {
         test.done();
     });
