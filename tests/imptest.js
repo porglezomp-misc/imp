@@ -131,6 +131,18 @@ casper.test.begin('Test the critical paths of the application from a fresh start
 
     casper.waitForUrl('/images/Cy0QxaE', function() {
         test.assertHttpStatus(200, 'The image should load successfully');
+        test.assertExists('form#newtag', 'There should be a form to create new tags');
+        this.fill('form#newtag', {
+            name: 'Steven Universe',
+        }, true);
+    });
+
+    casper.waitForSelector('#tags li a', function() {
+        test.assertElementCount('#tags li a', 1,
+                                'There should be one tag on the image');
+        test.assertSelectorHasText('#tags li a', 'Steven Universe',
+                                   'The tag should have the correct name');
+        this.clickLabel('Steven Universe');
     });
 
     casper.run(function() {
