@@ -211,7 +211,9 @@ class ListTagHandler(Handler):
                                'LEFT JOIN categories '
                                'ON categories.id = category_id '
                                'ORDER BY categories.name').fetchall()
-        return [{'name': name.title(), 'category': cat.title()} for name, cat in tags]
+        return [{'name': name.title(),
+                 'category': cat.title() if cat else None}
+                for name, cat in tags]
 
     def page_get(self):
         self.render('tags/index.html', tags=self.get_tags())
