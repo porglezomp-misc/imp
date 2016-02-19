@@ -385,9 +385,11 @@ if __name__ == '__main__':
         description="Serve a webpage that presents imp's data")
     parser.add_argument('-p', '--port', type=int, default=8888,
                         help="the port to run the server on")
+    parser.add_argument('-d', '--database', metavar='DB', default='imp.db',
+                        type=str, help="the name of the database to use")
     
     args = parser.parse_args()
-    db = database.make_db('imp.db')
+    db = database.make_db(args.database)
     app = make_app(db)
     app.listen(args.port)
     tornado.ioloop.IOLoop.current().start()
