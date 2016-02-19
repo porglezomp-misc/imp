@@ -4,6 +4,7 @@ import tornado.ioloop
 import tornado.web
 import database
 import random
+import argparse
 
 
 class HttpError(Exception):
@@ -380,7 +381,13 @@ def make_app(db):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description="Serve a webpage that presents imp's data")
+    parser.add_argument('-p', '--port', type=int, default=8888,
+                        help="the port to run the server on")
+    
+    args = parser.parse_args()
     db = database.make_db('imp.db')
     app = make_app(db)
-    app.listen(8888)
+    app.listen(args.port)
     tornado.ioloop.IOLoop.current().start()
