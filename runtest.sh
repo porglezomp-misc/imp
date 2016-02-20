@@ -9,6 +9,6 @@ DBNAME="db/test/$(date -Ins | sed 's|T|/|; s|,|/|').db"
 python server.py -d "$DBNAME" &> test_server.log
 ) &
 
-sleep 0.5
+sleep 1
 
 casperjs test tests/

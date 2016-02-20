@@ -1,6 +1,11 @@
 {% extends "../base.html" %}
 
-{% block title %}{{ name }}{% end %}
+{% block title %}
+  {{ name }}
+  {% if category %}
+    ({{ category }})
+  {% end %}
+{% end %}
 {% block main %}
   <h1>
     {{ name }}

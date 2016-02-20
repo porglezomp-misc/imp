@@ -160,6 +160,25 @@ casper.test.begin('Test the critical paths of the application from a fresh start
             category: 'Character',
         }, true);
     });
+
+    casper.waitForUrl('/tags/Connie', function() {
+        test.assertHttpStatus(200, 'The tag should load successfully');
+        test.assertTitle('Connie (Character)');
+        var text = this.evaluate(function() {
+            return document.getElementsByTagName('h1')[0].innerText;
+        });
+        test.assertEqual(text, 'Connie (Character)',
+                         'The header should have the tag name and parenthetical category');
+    });
+
+    casper.thenOpen('http://localhost:8888/categories/Character', function() {
+        test.assertHttpStatus(200, 'The category page should load successfully');
+        test.assertElementCount('main li a', 1,
+                                'There should be one tag in the category');
+        test.assertSelectorHasText('main li a', 'Connie',
+                                   'The tag link should be titled with the tag name');
+    });
+
     casper.run(function() {
         test.done();
     });
