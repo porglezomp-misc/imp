@@ -175,10 +175,43 @@ casper.test.begin('Test the critical paths of the application from a fresh start
         test.assertHttpStatus(200, 'The category page should load successfully');
         test.assertElementCount('main li a', 1,
                                 'There should be one tag in the category');
-        test.assertSelectorHasText('main li a', 'Connie',
+        test.assertSelectorHasText('main li a[href="/tags/Connie"]', 'Connie',
                                    'The tag link should be titled with the tag name');
     });
 
+    casper.thenOpen('http://localhost:8888/images/Cy0QxaE', function() {
+        this.fill('#newtag', {
+            name: 'fan art',
+        }, true);
+    });
+
+    casper.waitForSelector('#tags li:nth-child(2) a', function() {
+        test.assertSelectorHasText('#tags li:nth-child(2) a', 'Fan Art',
+                                   'Tags should automatically recieve title capitalization');
+        this.clickLabel('Fan Art');
+    });
+
+    casper.waitForUrl('/tags/Fan+Art', function() {
+        test.assertHttpStatus(200, 'The tag should load successfully');
+    });
+
+    casper.thenOpen('http://localhost:8888/tags', function() {
+        test.assertElementCount('main li a', 3, 'There should be 3 tags now');
+    });
+
+    casper.thenOpen('http://localhost:8888/images/Cy0QxaE', function() {
+        this.fill('#newtag', {
+            name: 'character:garnet',
+        }, true);
+        this.fill('#newtag', {
+            name: 'character:peridot',
+        }, true);
+        casper.waitForText('Garnet');
+    });
+
+    casper.thenOpen('http://localhost:8888/tags', function() {
+        test.assertElementCount('main li a', 5, 'We should have 5 tags by now');
+    });
     casper.run(function() {
         test.done();
     });
