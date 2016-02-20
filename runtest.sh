@@ -5,7 +5,7 @@ trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
 (
 cd imp/
-DBNAME="db/test/$(date -Ins | sed 's|T|/|; s|,|/|').db"
+DBNAME="db/test/$(date -Ins | sed 's|T|/|; s|,.*|/|')test.db"
 python server.py -d "$DBNAME" &> test_server.log
 ) &
 
