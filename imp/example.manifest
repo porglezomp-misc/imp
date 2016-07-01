@@ -1,0 +1,16 @@
+# Any line beginning with # is a comment
+# Any line beginning with * is an entry
+* /r/stevenuniverse  # You can have a comment at the end of a line too!
+# You can have any number of * at the beginning
+*** /r/SpecArt
+# Consider organizing them in a hierarchy!
+# ART!
+* /r/painting
+## Landscapes
+** birdsforscale  # You don't need /r/ if you don't want it
+** https://reddit.com/r/ImaginaryLandscapes  # This also works ...
+** /r/ImaginaryCityscapes  # ... since only the part after the last / matters
+** /r/ImaginaryMonuments   # This format looks the nicest though!
+## Portraits
+** /r/portraits
+** /r/ImaginaryCharacters

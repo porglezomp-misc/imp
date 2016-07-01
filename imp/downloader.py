@@ -102,9 +102,28 @@ def sub(reddit):
 
 
 @main.command(help='download multiple subreddits based on a manifest file')
-@click.argument('file')
-def multi(file):
-    pass
+@click.argument('filename')
+def multi(filename):
+    with open(filename, 'r') as f:
+        items = []
+        for num, line in enumerate(f):
+            line = line.strip()
+            if line[0] == '#' or line == '':
+                continue
+            elif line[0] == '*':
+                line = line.lstrip('*')
+                line = line.split('#')[0]
+                line = line.strip()
+                line = line.split('/')[-1]
+                items.append(line)
+            else:
+                print("Error, line {}:".format(num+1))
+                print("Expected '*' or '#' at the beginning of the line, skipping...")
+                print(line)
+        for item in items:
+            print(item)
+    db = database.make_db('imp.db')
+    download_from_database(db)
 
 
 if __name__ == '__main__':
