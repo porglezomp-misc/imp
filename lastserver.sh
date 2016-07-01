@@ -6,7 +6,7 @@ if [ -z "$(ls $TEST_DIR)" ]; then
     echo "Nothing in imp/$TEST_DIR"
     exit 1
 fi
-TEST_DAY=$TEST_DIR/$(ls $TEST_DIR -1 | tail -1)
+TEST_DAY=$TEST_DIR/$(ls $TEST_DIR -1 | grep -v "latest" | tail -1)
 if [ -z "$(ls $TEST_DAY)" ]; then
     echo "Nothing in imp/$TEST_DAY"
     exit 1

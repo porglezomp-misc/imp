@@ -1,4 +1,4 @@
-casper.test.begin('Test the critical paths of the application from a fresh start', 52, function(test) {
+casper.test.begin('Test the critical paths of the application from a fresh start', 70, function(test) {
     function assertNavBar() {
         test.assertSelectorHasText('nav a[href="/"]', 'Home',
                                    'The home button should exist');
@@ -227,7 +227,7 @@ casper.test.begin('Test the critical paths of the application from a fresh start
 
     casper.waitForUrl('/tags/Garnet', function() {
         test.assertTitle('Garnet (Character)');
-        test.assertSelectorHasText('h1', 'Garnet (Character)');
+        test.assertExists(x('//h1[normalize-space(text())="Garnet (Character)"]'));
     });
 
     casper.thenOpen('http://localhost:8888/categories/Character', function() {

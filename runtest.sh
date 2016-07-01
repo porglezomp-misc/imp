@@ -5,8 +5,16 @@ trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
 (
 cd imp/
-DBNAME="db/test/$(date -Ins | sed 's|T|/|; s|,.*|/|')test.db"
-python server.py -d "$DBNAME" &> test_server.log
+server_path="db/test/$(date -Ins | sed 's|T|/|; s|,.*|/|')"
+mkdir -p "${server_path}"
+rm -rf db/test/latest
+mkdir -p db/test/latest
+dbname="${server_path}test.db"
+logname="${server_path}server.log"
+touch "${logname}" "${dbname}"
+ln -f "${logname}" "$(pwd)/test_server.log"
+ln -f "${logname}" "${dbname}" "$(pwd)/db/test/latest/"
+python server.py -d "${dbname}" >"${logname}" 2>&1
 ) &
 
 LOADED=false

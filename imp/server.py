@@ -22,6 +22,30 @@ def tag_category(tag, db):
     return cat['name'].title()
 
 
+def add_image_tag(db, name, category):
+    print("NAME: {}, CATEGORY: {}".format(name, category))
+    if category:
+        category_id = get_category_id(db, category)
+    else:
+        category_id = None
+
+    with db:
+        db.execute('INSERT INTO tags (name, category_id) '
+                   'VALUES (?, ?)', (name, category_id))
+
+def get_category_id(db, name):
+    category_id = db.execute(
+        'SELECT id FROM categories WHERE name = ?',
+        (name,)).fetchone()
+    if category_id is None:
+        with db:
+            db.execute('INSERT INTO categories (name) VALUES (?)',
+                        (name.title(),))
+        category_id = db.execute(
+            'SELECT id FROM categories WHERE name = ?',
+            (name,)).fetchone()
+    return category_id['id']
+
 class Handler(tornado.web.RequestHandler):
     def initialize(self, db):
         self.db = db
@@ -185,13 +209,12 @@ class ImageAddTagHandler(Handler):
             return
         image_id = image_id['id']
 
-        tag_name = self.get_body_argument('name').title()
+        tag_name = self.get_body_argument('name').title().strip()
+        tag_category = self.get_body_argument('category', '').title().strip()
         tag_id = self.db.execute('SELECT id FROM tags WHERE name = ?',
                                  (tag_name,)).fetchone()
         if tag_id is None:
-            with self.db:
-                self.db.execute('INSERT INTO tags (name) VALUES (?)',
-                                (tag_name.title(),))
+            add_image_tag(self.db, tag_name, tag_category)
             tag_id = self.db.execute('SELECT id FROM tags WHERE name = ?',
                                      (tag_name,)).fetchone()
         tag_id = tag_id['id']
@@ -262,33 +285,13 @@ class StaticFileHandler(tornado.web.RequestHandler):
 
 
 class NewTagHandler(Handler):
-    def get_category_id(self, name):
-        category_id = self.db.execute(
-            'SELECT id FROM categories WHERE name = ?',
-            (name,)).fetchone()
-        if category_id is None:
-            with db:
-                self.db.execute('INSERT INTO categories (name) VALUES (?)',
-                                (name.title(),))
-            category_id = self.db.execute(
-                'SELECT id FROM categories WHERE name = ?',
-                (name,)).fetchone()
-        return category_id['id']
-
     def get(self):
         self.render('tags/new.html')
 
     def post(self):
-        name = self.get_body_argument('name').title()
-        category = self.get_body_argument('category').title()
-        if category:
-            category_id = self.get_category_id(category)
-        else:
-            category_id = None
-
-        with db:
-            self.db.execute('INSERT INTO tags (name, category_id) '
-                            'VALUES (?, ?)', (name, category_id))
+        name = self.get_body_argument('name').title().strip()
+        category = self.get_body_argument('category', '').title().strip()
+        add_image_tag(self.db, name, category)
         name = name.replace(' ', '+')
         self.redirect('/tags/{}'.format(name))
 
