@@ -1,13 +1,12 @@
 from __future__ import print_function
 
 import requests
-import bs4
 import sys
 import logging
 import os
 import sys
-import sqlite3
 import json
+import click
 from imgurpython import ImgurClient
 
 import database
@@ -15,6 +14,8 @@ import database
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logging.getLogger('requests').setLevel(logging.WARN)
+logging.getLogger('urllib3').setLevel(logging.WARN)
 db = None
 
 
@@ -31,14 +32,14 @@ def download_image(url, location):
     logger.info("Finished downloading %s to %s", url, location)
 
 
-def record_image(url, title, description, source=None):
+def record_image(db, url, title, description, source=None):
     fname = url.split('/')[-1]
     key = fname.split('.')[0]
     i = db.execute('SELECT id FROM images WHERE key = ?', [key])
     if i.fetchone() is None:
         with db:
             logger.info("INSERT INTO images (name, key, url, description) "
-                        "VALUES ('%s', '%s', '%s');",
+                        "VALUES ('%s', '%s', '%s', '%s');",
                         title, key, url, description or 'NULL')
             db.execute('INSERT INTO images (name, key, url, description) '
                        'VALUES (?, ?, ?, ?);',
@@ -47,20 +48,8 @@ def record_image(url, title, description, source=None):
 
 RESOURCES = 'resources'
 
-if __name__ == '__main__':
-    # TODO: Command line interface
-    db = database.make_db('imp.db')
-    with open('SECRET', 'r') as f:
-        vals = json.loads(f.read())
-        client_id = vals['client_id']
-        client_secret = vals['client_secret']
-        client = ImgurClient(client_id, client_secret)
 
-    vals = client.subreddit_gallery(sys.argv[1])
-    for val in vals:
-        val.link = val.link.replace('http:', 'https:')
-        record_image(val.link, val.title, val.description)
-
+def download_from_database(db):
     not_downloaded = db.execute('SELECT * FROM images WHERE file IS NULL;')
     if not os.path.isdir(RESOURCES):
         os.mkdir(RESOURCES)
@@ -73,3 +62,50 @@ if __name__ == '__main__':
                        (fname, image['id']))
             logger.info("UPDATE images SET file = '%s' WHERE id = %s",
                        fname, image['id'])
+
+
+def locate_images(db, client, subreddit):
+    from imgurpython.helpers.error import ImgurClientRateLimitError
+    try:
+        vals = client.subreddit_gallery(subreddit)
+    except ImgurClientRateLimitError as e:
+        print(e.error_message)
+        print(e.status_code)
+        return False
+    else:
+        for val in vals:
+            val.link = val.link.replace('http:', 'https:')
+            record_image(db, val.link, val.title, val.description)
+    return True
+
+
+def get_client():
+    with open('SECRET', 'r') as f:
+        vals = json.loads(f.read())
+        client_id = vals['client_id']
+        client_secret = vals['client_secret']
+    return ImgurClient(client_id, client_secret)
+
+
+@click.group()
+def main():
+    pass
+
+
+@main.command(help='download from a single subreddit')
+@click.argument('reddit')
+def sub(reddit):
+    db = database.make_db('imp.db')
+    client = get_client()
+    locate_images(db, client, reddit)
+    download_from_database(db)
+
+
+@main.command(help='download multiple subreddits based on a manifest file')
+@click.argument('file')
+def multi(file):
+    pass
+
+
+if __name__ == '__main__':
+    main()
