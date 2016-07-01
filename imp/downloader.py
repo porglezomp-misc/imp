@@ -53,7 +53,11 @@ def download_from_database(db):
     not_downloaded = db.execute('SELECT * FROM images WHERE file IS NULL;')
     if not os.path.isdir(RESOURCES):
         os.mkdir(RESOURCES)
-    for image in not_downloaded.fetchall():
+    images = not_downloaded.fetchall()
+    if images:
+        print("Downloading images: {:03}/{:03}".format(0, len(images)), end='')
+        sys.stdout.flush()
+    for i, image in enumerate(images):
         fname = image['url'].split('/')[-1]
         fname = os.path.join(RESOURCES, fname)
         download_image(image['url'], fname)
@@ -62,6 +66,9 @@ def download_from_database(db):
                        (fname, image['id']))
             logger.info("UPDATE images SET file = '%s' WHERE id = %s",
                        fname, image['id'])
+        print("\rDownloading images: {:03}/{:03}".format(i+1, len(images)), end='')
+        sys.stdout.flush()
+    print()
 
 
 def locate_images(db, client, subreddit):
@@ -88,8 +95,17 @@ def get_client():
 
 
 @click.group()
-def main():
-    pass
+@click.option('-v', '--verbose', count=True, default=0)
+def main(verbose):
+    if verbose == 0:
+        logging.getLogger(__name__).setLevel(logging.WARN)
+    if verbose == 1:
+        logging.getLogger(__name__).setLevel(logging.INFO)
+    if verbose >= 2:
+        logging.getLogger(__name__).setLevel(logging.DEBUG)
+        if verbose >= 3:
+            logging.getLogger('requests').setLevel(logging.INFO)
+            logging.getLogger('urllib3').setLevel(logging.INFO)
 
 
 @main.command(help='download from a single subreddit')
@@ -104,6 +120,7 @@ def sub(reddit):
 @main.command(help='download multiple subreddits based on a manifest file')
 @click.argument('filename')
 def multi(filename):
+    db = database.make_db('imp.db')
     with open(filename, 'r') as f:
         items = []
         for num, line in enumerate(f):
@@ -120,8 +137,16 @@ def multi(filename):
                 print("Error, line {}:".format(num+1))
                 print("Expected '*' or '#' at the beginning of the line, skipping...")
                 print(line)
-        for item in items:
-            print(item)
+        if items:
+            client = get_client()
+            for location in items:
+                print("Downloading from {}".format(location))
+                locate_images(db, client, location)
+    download_from_database(db)
+
+
+@main.command(help='finish downloading cached images')
+def flush():
     db = database.make_db('imp.db')
     download_from_database(db)
 
