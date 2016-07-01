@@ -21,6 +21,10 @@
     </li>
   </ul>
   <script>
+    function formEncode(string) {
+      return encodeURIComponent(string).replace(/%20/g, '+');
+    }
+
     function display() {
       var items = JSON.parse(this.responseText);
       var newTag = document.getElementById('newtag').parentNode;
@@ -29,9 +33,7 @@
       for (var i = 0; i < items.length; i++) {
         var name = items[i];
         var listItem = document.createElement('li');
-        listItem.innerHTML = '<a href="/tags/' +
-          encodeURIComponent(name).replace(/%20/g, '+') +
-          '">' + name + '</a>';
+        listItem.innerHTML = '<a href="/tags/' + formEncode(name) + '">' + name + '</a>';
         tagList.appendChild(listItem);
       }
       tagList.appendChild(newTag);
@@ -42,8 +44,17 @@
       event.preventDefault();
 
       var name = document.getElementById('name-input').value.trim();
+      var category = '';
+
+      if (name.indexOf(':') !== -1) {
+        var items = name.split(':');
+        name = items[1].trim();
+        category = items[0].trim();
+      }
+
       if (name == '') return;
-      var dataString = 'name='+name;
+      var dataString = 'name='+formEncode(name);
+      if (category != '') dataString += '&category='+formEncode(category);
 
       document.getElementById('name-input').value = '';
 

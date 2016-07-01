@@ -1,4 +1,4 @@
-casper.test.begin('Test the critical paths of the application from a fresh start', function(test) {
+casper.test.begin('Test the critical paths of the application from a fresh start', 52, function(test) {
     function assertNavBar() {
         test.assertSelectorHasText('nav a[href="/"]', 'Home',
                                    'The home button should exist');
@@ -7,6 +7,16 @@ casper.test.begin('Test the critical paths of the application from a fresh start
         test.assertSelectorHasText('nav a[href="/categories"]', 'Categories',
                                    'The categories button should exist');
     }
+
+    casper.on('remote.message', function(msg) {
+        this.echo('Remote log: ' + msg);
+    });
+
+    casper.on('page.error', function(msg) {
+        this.warn(msg);
+    });
+
+    var x = require('casper').selectXPath;
 
     casper.start('http://localhost:8888/', function() {
         test.assertHttpStatus(200, 'The root page should load successfully');
@@ -24,7 +34,7 @@ casper.test.begin('Test the critical paths of the application from a fresh start
                           'The page should have a form to describe the image');
         this.fill('form[action="/images/new"]', {
             name: 'My Steven Universe Poster!',
-            url: 'http://i.imgur.com/Cy0QxaE.jpg',
+            url: 'https://i.imgur.com/Cy0QxaE.jpg',
             description: 'An extremely cool poster',
         }, true);
     });
@@ -35,7 +45,7 @@ casper.test.begin('Test the critical paths of the application from a fresh start
                          'The page should have the title we entered');
         test.assertSelectorHasText('h1', 'My Steven Universe Poster!',
                                    'The header should also have the title we entered');
-        test.assertExists('img[src="http://i.imgur.com/Cy0QxaE.jpg"]',
+        test.assertExists('img[src="https://i.imgur.com/Cy0QxaE.jpg"]',
                           'The image we chose should be on the page');
     });
 
@@ -207,11 +217,24 @@ casper.test.begin('Test the critical paths of the application from a fresh start
             name: 'character:peridot',
         }, true);
         casper.waitForText('Garnet');
+        casper.waitForText('Peridot');
     });
 
     casper.thenOpen('http://localhost:8888/tags', function() {
         test.assertElementCount('main li a', 5, 'We should have 5 tags by now');
+        this.click(x('//*[normalize-space(text())="Garnet"]'));
     });
+
+    casper.waitForUrl('/tags/Garnet', function() {
+        test.assertTitle('Garnet (Character)');
+        test.assertSelectorHasText('h1', 'Garnet (Character)');
+    });
+
+    casper.thenOpen('http://localhost:8888/categories/Character', function() {
+        test.assertElementCount('main li a', 3,
+                                'We should have 3 tags in the category');
+    });
+
     casper.run(function() {
         test.done();
     });
