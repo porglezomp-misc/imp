@@ -1,6 +1,7 @@
 import sqlite3
 import logging
 import shutil
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,6 @@ CREATE TABLE image_tags (
     image_id INTEGER NOT NULL REFERENCES images(id) ON UPDATE CASCADE,
     tag_id INTEGER NOT NULL REFERENCES tags(id) ON UPDATE CASCADE
 );''')
-        db.execute('PRAGMA user_version = 1;')
 
 
 def database_1_to_2(db):
@@ -46,17 +46,47 @@ CREATE TABLE tags (
     category_id INTEGER REFERENCES categories(id) ON UPDATE CASCADE
 );
 
-INSERT INTO tags (id, name) SELECT id, name FROM tags_old;''')
-        db.execute('PRAGMA user_version = 2;')
+INSERT INTO tags (id, name) SELECT id, name FROM tags_old;
+
+DROP TABLE tags_old;''')
 
 
-db_upgrades = [database_0_to_1, database_1_to_2]
+def database_2_to_3(db):
+    with db:
+        db.executescript('''\
+ALTER TABLE tags RENAME TO tags_old;
+
+CREATE TABLE tags (
+    id INTEGER PRIMARY KEY NOT NULL,
+    name VARCHAR(64) UNIQUE NOT NULL COLLATE NOCASE,
+    category_id INTEGER REFERENCES categories(id) ON UPDATE CASCADE
+);
+
+INSERT INTO tags (id, name, category_id)
+SELECT id, name, category_id FROM tags_old;
+
+DROP TABLE tags_old;
+
+ALTER TABLE categories RENAME TO categories_old;
+
+CREATE TABLE categories (
+    id INTEGER PRIMARY KEY NOT NULL,
+    name VARCHAR(64) UNIQUE NOT NULL COLLATE NOCASE
+);
+
+INSERT INTO categories (id, name)
+SELECT id, name FROM categories_old;
+
+DROP TABLE categories_old;''')
+
+
+db_upgrades = [database_0_to_1, database_1_to_2, database_2_to_3]
 
 
 def make_db(name):
     con = sqlite3.connect(name)
     con.row_factory = sqlite3.Row
-    con.execute('PRAGMA foreign_keys = ON;')
+    con.execute('PRAGMA foreign_keys = OFF;')
     version = con.execute('PRAGMA user_version;').fetchone()[0]
     if version > len(db_upgrades):
         version_message = ('Error, database version {}, maximum '
@@ -71,13 +101,26 @@ def make_db(name):
     # imp.db.4
     # We don't take a backup of the zero version database, because it can't
     # contain any well-formed content.
+    backup = None
     if version < len(db_upgrades) and version > 0:
-        shutil.copy2(name, name + '.' + str(version))
-    while version < len(db_upgrades):
-        upgrade = db_upgrades[version]
-        upgrade(con)
-        old_version = version
-        version = con.execute('PRAGMA user_version;').fetchone()[0]
-        logger.info("Upgraded schema from user version %d to %d",
-                    old_version, version)
+        backup = name + '.' + str(version)
+        shutil.copy2(name, backup)
+    try:
+        while version < len(db_upgrades):
+            upgrade = db_upgrades[version]
+            upgrade(con)
+            old_version = version
+            con.execute('PRAGMA user_version = {};'.format(old_version + 1))
+            version = con.execute('PRAGMA user_version;').fetchone()[0]
+            assert version == old_version + 1
+            logger.info("Upgraded schema from user version %d to %d",
+                        old_version, version)
+    except:
+        if backup:
+            shutil.copy2(name, name + '.fail')
+            os.remove(name)
+            shutil.copy2(backup, name)
+        raise
+
+    con.execute('PRAGMA foreign_keys = ON;')
     return con

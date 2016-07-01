@@ -5,7 +5,6 @@
   <h1>{{ name }}</h1>
   <img alt="" src="{{ url }}"/>
   <p>{{ desc or "" }}</p>
-  <a href="/images/{{ image_key }}/tags/new">+ Add Tag</a>
   <ul id="tags">
     {% for tag in tags %}
     <li>
@@ -14,5 +13,59 @@
       </a>
     </li>
     {% end %}
+    <li>
+      <form id="newtag">
+        <input aria-label="New Tag Name" id="name-input" name="name" type="text"/>
+        <input id="submit-button" type="submit" value="Add Tag"/>
+      </form>
+    </li>
   </ul>
+  <script>
+    function formEncode(string) {
+      return encodeURIComponent(string).replace(/%20/g, '+');
+    }
+
+    function display() {
+      var items = JSON.parse(this.responseText);
+      var newTag = document.getElementById('newtag').parentNode;
+      var tagList = document.getElementById('tags');
+      tagList.innerHTML = '';
+      for (var i = 0; i < items.length; i++) {
+        var name = items[i];
+        var listItem = document.createElement('li');
+        listItem.innerHTML = '<a href="/tags/' + formEncode(name) + '">' + name + '</a>';
+        tagList.appendChild(listItem);
+      }
+      tagList.appendChild(newTag);
+      document.getElementById('name-input').focus();
+    }
+
+    function submitNewTag(event) {
+      event.preventDefault();
+
+      var name = document.getElementById('name-input').value.trim();
+      var category = '';
+
+      if (name.indexOf(':') !== -1) {
+        var items = name.split(':');
+        name = items[1].trim();
+        category = items[0].trim();
+      }
+
+      if (name == '') return;
+      var dataString = 'name='+formEncode(name);
+      if (category != '') dataString += '&category='+formEncode(category);
+
+      document.getElementById('name-input').value = '';
+
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/images/{{ image_key }}/tags/new', true);
+      xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+      xhr.onload = display;
+      xhr.send(dataString);
+    }
+
+    var form = document.getElementById('newtag');
+    form.addEventListener('submit', submitNewTag);
+  </script>
 {% end %}
