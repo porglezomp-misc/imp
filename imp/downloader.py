@@ -7,6 +7,8 @@ import logging
 import os
 import sys
 import sqlite3
+import json
+from imgurpython import ImgurClient
 
 import database
 
@@ -17,6 +19,8 @@ db = None
 
 
 def download_image(url, location):
+    url = url.replace('http:', 'https:')
+    logger.info("Downloading %s to %s", url, location)
     r = requests.get(url)
     if r.status_code != requests.codes.ok:
         logger.error("Error %d while downloding %s", r.status_code, url)
@@ -27,46 +31,18 @@ def download_image(url, location):
     logger.info("Finished downloading %s to %s", url, location)
 
 
-def record_image(url, title):
-    f = url.split('/')[-1]
-    key = f.split('.')[0]
+def record_image(url, title, description, source=None):
+    fname = url.split('/')[-1]
+    key = fname.split('.')[0]
     i = db.execute('SELECT id FROM images WHERE key = ?', [key])
     if i.fetchone() is None:
         with db:
-            logger.info("INSERT INTO images (name, key, url) "
-                        "VALUES ('%s', '%s', '%s');", title, key, url)
-            db.execute('INSERT INTO images (name, key, url) '
-                       'VALUES (?, ?, ?);', (title, key, url))
-
-
-def locate_image(url, save_into=''):
-    r = requests.get(url)
-    html = bs4.BeautifulSoup(r.text, 'html.parser')
-    imgs = html.select('.post-image a img')
-    for img in imgs:
-        url = 'https:' + img['src'].rstrip('?0123456789')
-        logger.info("Downloading %s", url)
-        title = html.select('h1.post-title')[0].text
-        record_image(url, title)
-
-
-def find_many(source, dest):
-    if not os.path.isdir(dest):
-        os.mkdir(dest)
-
-    r = requests.get(source)
-    html = bs4.BeautifulSoup(r.text, 'html.parser')
-    links = html.find_all('a', class_='image-list-link')
-    keys = {row[0] for row in db.execute('SELECT key FROM images;').fetchall()}
-
-    for link in links:
-        urlkey = link['href'].split('/')[-1].split('.')[0]
-        if urlkey in keys:
-            logger.info('%s already downloaded, skipping', link['href'])
-        else:
-            url = 'https://imgur.com' + link['href']
-            # TODO: Concurrent processing
-            locate_image(url, save_into=dest)
+            logger.info("INSERT INTO images (name, key, url, description) "
+                        "VALUES ('%s', '%s', '%s');",
+                        title, key, url, description or 'NULL')
+            db.execute('INSERT INTO images (name, key, url, description) '
+                       'VALUES (?, ?, ?, ?);',
+                       (title, key, url, description))
 
 
 RESOURCES = 'resources'
@@ -74,7 +50,17 @@ RESOURCES = 'resources'
 if __name__ == '__main__':
     # TODO: Command line interface
     db = database.make_db('imp.db')
-    find_many(sys.argv[1], 'out')
+    with open('SECRET', 'r') as f:
+        vals = json.loads(f.read())
+        client_id = vals['client_id']
+        client_secret = vals['client_secret']
+        client = ImgurClient(client_id, client_secret)
+
+    vals = client.subreddit_gallery(sys.argv[1])
+    for val in vals:
+        val.link = val.link.replace('http:', 'https:')
+        record_image(val.link, val.title, val.description)
+
     not_downloaded = db.execute('SELECT * FROM images WHERE file IS NULL;')
     if not os.path.isdir(RESOURCES):
         os.mkdir(RESOURCES)

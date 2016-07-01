@@ -403,4 +403,5 @@ if __name__ == '__main__':
     db = database.make_db(args.database)
     app = make_app(db)
     app.listen(args.port)
+    print("Listening at http://localhost:{}/".format(args.port))
     tornado.ioloop.IOLoop.current().start()
